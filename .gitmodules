@@ -1,0 +1,3 @@
+[submodule "argokit"]
+	path = argokit
+	url = https://github.com/kartverket/argokit.git
