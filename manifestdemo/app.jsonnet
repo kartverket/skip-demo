@@ -28,11 +28,10 @@ local BaseApp = {
     },
 };
 
-[
-    BaseApp + argokit.Application("foo-backend") {
-        spec+: {
-            image: "ghcr.io/skip-demo/skip-demo:latest",
-            ingresses: ["skip-demo.atgcp1-sandbox.kartverket.no"],
-    },
-    }
-]
+
+BaseApp + argokit.Application("skip-demo") {
+    spec+: {
+        image: "ghcr.io/kartverket/skip-demo:latest",
+        ingresses: ["skip-demo.atgcp1-sandbox.kartverket.cloud"],
+},
+}

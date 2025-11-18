@@ -21,33 +21,33 @@
     <canvas id="game" width="400" height="400"></canvas>
 
     <script>
-        // --- JavaScript Code Starts Here ---
+
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
 
-        let gridSize = 20; // Size of each grid cell
-        let tileCount = canvas.width / gridSize; // Number of tiles in each direction
-        let snake = [{ x: 10, y: 10 }]; // Initial snake position and length
-        let food = { x: 15, y: 15 }; // Initial food position
-        let xV = 0, yV = 0; // Velocity/direction
+        let gridSize = 20; 
+        let tileCount = canvas.width / gridSize; 
+        let snake = [{ x: 10, y: 10 }];
+        let food = { x: 15, y: 15 }; 
+        let xV = 0, yV = 0; 
         let score = 0;
         let gameOver = false;
 
-        // Game Loop
+
         function gameLoop() {
             if (gameOver) return;
 
-            // Move the snake
+
             let head = { x: snake[0].x + xV, y: snake[0].y + yV };
             
-            // Check for wall collisions
+
             if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
                 gameOver = true;
                 alert("Game Over! Score: " + score);
                 return;
             }
 
-            // Check for self collisions
+
             for (let i = 1; i < snake.length; i++) {
                 if (head.x === snake[i].x && head.y === snake[i].y) {
                     gameOver = true;
@@ -56,14 +56,14 @@
                 }
             }
 
-            snake.unshift(head); // Add new head to the beginning of the array
+            snake.unshift(head); 
 
-            // Check if snake eats food
+
             if (head.x === food.x && head.y === food.y) {
                 score++;
                 generateFood();
             } else {
-                snake.pop(); // Remove tail if no food eaten
+                snake.pop(); 
             }
 
             drawEverything();
@@ -72,59 +72,55 @@
         function generateFood() {
             food.x = Math.floor(Math.random() * tileCount);
             food.y = Math.floor(Math.random() * tileCount);
-            // Ensure food doesn't spawn on the snake's body
+
             for (let i = 0; i < snake.length; i++) {
                 if (food.x === snake[i].x && food.y === snake[i].y) {
-                    generateFood(); // Recalculate if overlap occurs
+                    generateFood();
                 }
             }
         }
 
         function drawEverything() {
-            // Clear screen
+
             ctx.fillStyle = 'black';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw food
             ctx.fillStyle = 'red';
             ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
 
-            // Draw snake
             ctx.fillStyle = 'lime';
             for (let i = 0; i < snake.length; i++) {
                 ctx.fillRect(snake[i].x * gridSize, snake[i].y * gridSize, gridSize - 2, gridSize - 2);
             }
             
-            // Draw score
             ctx.fillStyle = 'white';
             ctx.fillText("Score: " + score, 20, 20);
         }
 
-        // Handle controls
+
         document.addEventListener('keydown', changeDirection);
 
         function changeDirection(event) {
-            // Prevent snake from reversing direction instantly
             switch (event.keyCode) {
-                case 37: // Left arrow
+                case 37:
                     if (xV !== 1) { xV = -1; yV = 0; }
                     break;
-                case 38: // Up arrow
+                case 38: 
                     if (yV !== 1) { xV = 0; yV = -1; }
                     break;
-                case 39: // Right arrow
+                case 39: 
                     if (xV !== -1) { xV = 1; yV = 0; }
                     break;
-                case 40: // Down arrow
+                case 40: 
                     if (yV !== -1) { xV = 0; yV = 1; }
                     break;
             }
         }
 
-        // Start the game loop
-        generateFood(); // Place initial food
-        setInterval(gameLoop, 200); // Run gameLoop every 200ms
-        // --- JavaScript Code Ends Here ---
+
+        generateFood(); 
+        setInterval(gameLoop, 250); // Gameloop timer!
+        
     </script>
 </body>
 </html>
