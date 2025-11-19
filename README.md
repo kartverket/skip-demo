@@ -30,15 +30,17 @@
 ## Fremgangsmåte
 
 1.  **Utvikler/Applikasjonsdrifter:** Gjør en endring i applikasjonskoden. (ny funksjonalitet i koden, eller endring på hostnavn/minne/CPU e.l. i apps-repo)
-2.  **Git Push:** Endringen pushes til `main`-branchen.
+2.  **Git Push:** Endringen pushes til `main`-branchen med pull request.
 3.  **GitHub Actions (CI):**
     * Push trigger automatisk workflow definert i `.github/workflows/workflow.yaml`.
     * Workflow bygger et nytt Docker-image basert på `Dockerfile`.
-    * Imaget tagges (f.eks. med `ghcr.io/ditt-navn/din-app:latest` eller med commit-SHA).
+    * Imaget tagges (f.eks. med `ghcr.io/repo-navn/din-app:latest` eller med SHA).
     * Workflow pusher det nye imaget til ghcr.
 4.  **ArgoKit/skipctl:**
-    * ArgoKit jasonnet template brukes for å lage applikasjons-manifestet, og [skipctl](https://github.com/kartverket/skipctl) brukes til validering av applikasjonsmanifestet. 
-5.  **Synkronisering og Utrulling:**
+    * ArgoKit jasonnet template brukes for å lage applikasjons-manifestet, og [skipctl](https://github.com/kartverket/skipctl) brukes til validering av applikasjonsmanifestet.
+5. **Apps repo** 
+    * Oppdateres med validert applikasjonsmanifest 
+6.  **Synkronisering og Utrulling:**
     * ArgoCD ser den nye endringen i apps-repo og oppdaterer konfigurasjon ihht oppdateringer.
     * ArgoCD synkroniserer `Application`-manifestet til Kubernetes, enten automatisk, eller etter at noen har trykket "Sync" i argocd.
     * **Skiperator** oppdager endringen i `Application`-ressursen.
@@ -52,7 +54,7 @@
 * `app/`: Kildekoden for selve demo-applikasjonen.
 * `Dockerfile`: Oppskriften for å bygge applikasjonen inn i et container-image.
 * `.github/workflows/workflow.yaml`: Definisjonen av github action som bygger og pusher imaget.
-* `manifestdemo/app.jsonnet`: Det viktigste manifestet. Dette er `SKIPApplication`-ressursen som Skiperator leser. Det er *denne* filen ArgoCD bruker som sin "source of truth" for applikasjonen. Denne filen må ligge i et apps-repo for å kunne plukkes opp av 
+* `manifestdemo/app.jsonnet`: Dette er `SKIPApplication`-ressursen som Skiperator leser. Det er denne filen ArgoCD bruker som sin "source of truth" for applikasjonen. *Denne filen må ligge i et apps-repo for å kunne plukkes opp av ArgoCD
 * `argokit`-mappen er [ArgoKit](https://github.com/kartverket/argokit)-repoet sjekket ut som en submodule for å få tilgang til jsonnet bibliotekene.
 
 ---
