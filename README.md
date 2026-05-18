@@ -4,7 +4,7 @@
 
 ## Innhold
 
-1.  **Programvare:** En enkel applikasjon. (Go applikasjon som serverer statisk HTLM/JS)
+1.  **Programvare:** En enkel applikasjon. (Go applikasjon som serverer statisk HTML/JS)
 2.  **Konteinerisering:** En `Dockerfile` som definerer hvordan appen pakkes i en kontainer.
 3.  **Kontinuerlig Integrasjon (CI):** En GitHub Actions-workflow som bygger og pusher et Docker-image til ghcr.io (GitHub Container Registry) på hver push til `main`.
 4.  **Kontinuerlig Leveranse (CD):**
@@ -23,7 +23,7 @@
 * Tilgang til SKIP som en del av et produktteam.
 * Rettigheter i kartverkets Github
 * Tilgang til et apps-repo.
-* Tilkoblet kartverketes intranet for tilgang til [ArgoCD](https://argo-dev.kartverket.dev).
+* Tilkoblet Kartverkets intranet for tilgang til [ArgoCD](https://argo-dev.kartverket.dev).
 * En applikasjon som du ønsker å kjøre på skip.
 
 ---
@@ -37,7 +37,7 @@
     * Imaget tagges (f.eks. med `ghcr.io/repo-navn/din-app:latest` eller med SHA).
     * Workflow pusher det nye imaget til ghcr.
 4.  **ArgoKit/skipctl:**
-    * ArgoKit jasonnet template brukes for å lage applikasjons-manifestet, og [skipctl](https://github.com/kartverket/skipctl) brukes til validering av applikasjonsmanifestet.
+    * ArgoKit jsonnet template brukes for å lage applikasjons-manifestet, og [skipctl](https://github.com/kartverket/skipctl) brukes til validering av applikasjonsmanifestet.
 5. **Apps repo** 
     * Oppdateres med validert applikasjonsmanifest 
 6.  **Synkronisering og Utrulling:**
@@ -45,7 +45,7 @@
     * ArgoCD synkroniserer `Application`-manifestet til Kubernetes, enten automatisk, eller etter at noen har trykket "Sync" i argocd.
     * **Skiperator** oppdager endringen i `Application`-ressursen.
     * Skiperator genererer og oppdaterer de underliggende Kubernetes-ressursene (Deployment, Service, Ingress, etc.) for å matche den nye ønskede tilstanden.
-    * Sertifikat oppretes og  rulles ut på SKIP.
+    * Sertifikat opprettes og rulles ut på SKIP.
 
 ---
 

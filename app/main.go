@@ -1,8 +1,10 @@
 package main
 
+import (
+	"net/http"
 
-import "github.com/gin-gonic/gin"
-
+	"github.com/gin-gonic/gin"
+)
 
 func main() {
 	router := gin.Default()
@@ -11,14 +13,13 @@ func main() {
 
 	// Liveness probe
 	router.GET("/healthz", func(c *gin.Context) {
-		c.JSON(c.Writer.Status(), gin.H{"status": "ok"})
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
 	// Readiness probe
 	router.GET("/readyz", func(c *gin.Context) {
-		c.JSON(c.Writer.Status(), gin.H{"status": "ok"})
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
-
 
 	router.Run(":8080")
 }
