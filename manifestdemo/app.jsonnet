@@ -1,37 +1,29 @@
-local argokit = import '../argokit/jsonnet/argokit.libsonnet';
+local argokit = import '../argokit/v2/jsonnet/argokit.libsonnet';
+local application = argokit.appAndObjects.application;
 
-local ProbeHealthz = {
-    path: "/healthz",
-    port: 8080,
-    failureThreshold: 3,
-    timeout: 1,
-    initialDelay: 0,
-};
-local ProbeReadyz = {
-    path: "/readyz",
-    port: 8080,
-    failureThreshold: 3,
-    timeout: 1,
-    initialDelay: 0,
-};
+local livenessProbe = application.probe(
+  path='/healthz',
+  port=8080,
+  failureThreshold=3,
+  timeout=1,
+  initialDelay=0,
+);
 
-local BaseApp = {
-    spec: {
-        port: 8080,
-        replicas: {
-            min: 2,
-            max: 5,
-            targetCPUUtilization: 80,
-        },
-        liveness: ProbeHealthz,
-        readiness: ProbeReadyz,
-    },
-};
+local readinessProbe = application.probe(
+  path='/readyz',
+  port=8080,
+  failureThreshold=3,
+  timeout=1,
+  initialDelay=0,
+);
 
-
-BaseApp + argokit.Application("skip-demo") {
-    spec+: {
-        image: "ghcr.io/kartverket/skip-demo:latest",
-        ingresses: ["skip-demo.atgcp1-sandbox.kartverket.cloud"],
-},
-}
+application.new('skip-demo', 'ghcr.io/kartverket/skip-demo:latest', 8080)
++ application.withRoutingProvider('Standard')
++ application.forHostnames('skip-demo.atgcp1-sandbox.kartverket.cloud')
++ application.withReplicas(
+  initial=2,
+  max=5,
+  targetCpuUtilization=80,
+)
++ application.withLiveness(livenessProbe)
++ application.withReadiness(readinessProbe)
