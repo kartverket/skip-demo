@@ -1,6 +1,8 @@
 # Demo: App på SKIP!
 
-> Dette er et demo-repo som viser hvordan en applikasjon pakkes med **Docker** og **GitHub Actions**, og deployeres til [**SKIP-plattformen**](https://skip.kartverket.no) ved hjelp av **ArgoKit**, **skipctl**, **Argo CD** og **Skiperator**.
+> Dette er et demo- og startrepo som viser hvordan en applikasjon pakkes i en container med **Docker** og **GitHub Actions**, og deployeres til [**SKIP-plattformen**](https://skip.kartverket.no) ved hjelp av **ArgoKit**, **skipctl**, **Argo CD** og **Skiperator**.
+>
+> **💡 Bruk gjerne dette repoet som utgangspunkt for å lage dine egne applikasjoner!** Enten du vil bygge videre i Go, lage et eget spill eller verktøy i HTML/JS, eller skrive en app i et helt annet språk (Python, Node.js, Kotlin/Java, Rust, .NET osv.), kan du følge akkurat samme mappestruktur og container-oppsett for å få appen din raskt ut på SKIP.
 
 ## Innhold
 
@@ -143,6 +145,64 @@ skipctl manifest validate --path manifestdemo/app.jsonnet
 # Formater Jsonnet-filen:
 skipctl manifest format --path manifestdemo/app.jsonnet
 ```
+
+---
+
+## 🚀 Lag din egen app og pakk den i en container!
+
+Dette repoet er bygget opp som en mal du kan kopiere eller ta utgangspunkt i når du vil lage din egen applikasjon og rulle den ut på SKIP. Så lenge applikasjonen din kan pakkes i en container og følger noen enkle konvensjoner, tar resten av oppsettet i repoet seg av bygging, publisering og utrulling!
+
+### Repo-strukturen du kan følge
+
+Ved å holde samme struktur som i dette repoet får du et ryddig skille mellom **applikasjonskode**, **container-pakking**, **CI-bygging** og **SKIP-manifest**:
+
+```text
+mitt-app-repo/
+├── app/                          # 💻 Din applikasjonskode (Go, Python, Node, Kotlin, HTML/JS osv.)
+│   ├── main.go                   #    Startpunkt for applikasjonen (inkl. /healthz og /readyz)
+│   └── static/                   #    Statiske filer / frontend
+├── Dockerfile                    # 📦 Oppskrift for å bygge og pakke app/ inn i et container-image
+├── .github/
+│   └── workflows/
+│       └── workflow.yaml         # ⚙️ Bygger Dockerfile automatisk og pusher image til ghcr.io
+├── manifestdemo/
+│   └── app.jsonnet               # ☸️ ArgoKit-manifest som forteller Skiperator hvordan containeren skal kjøres
+└── argokit/                      # 📚 Git-submodule med ArgoKit-biblioteket for lokal validering med skipctl
+```
+
+> **Tips:** GitHub Actions-workflowen i [`.github/workflows/workflow.yaml`](./.github/workflows/workflow.yaml) bruker `${{ github.repository }}` automatisk. Det betyr at hvis du oppretter et nytt repo med denne strukturen, vil workflowen automatisk bygge `Dockerfile` i rotmappen og publisere imaget til `ghcr.io/kartverket/<ditt-repo-navn>` uten at du trenger å endre workflow-filen!
+
+### To måter å lage din egen app på
+
+#### Alternativ 1: Bygg videre på Go-serveren eller bytt ut frontenden (Raskest!)
+Hvis du vil lage en enkel web-app, et dashboard, et spill eller et lite API:
+1. Bytt ut eller endre [`app/static/index.html`](./app/static/index.html) med din egen HTML/CSS/JavaScript-kode.
+2. Legg eventuelt til nye API-ruter i [`app/main.go`](./app/main.go).
+3. **Ingen endringer kreves i `Dockerfile`!** Kjør `docker build -t min-app:local .` for å pakke den nye appen din i en container.
+
+#### Alternativ 2: Skriv en app i ditt favorittspråk i `app/`
+SKIP bryr seg ikke om hvilket programmeringsspråk appen er skrevet i – så lenge den er pakket i en container:
+1. Erstatt innholdet i [`app/`](./app) med ditt eget prosjekt (f.eks. Python med FastAPI/Flask, Node.js/TypeScript, Java/Kotlin, .NET eller Rust).
+2. Sørg for at applikasjonen din starter en HTTP-server (f.eks. på port `8080`) og svarer med HTTP `200 OK` på helsesjekk-endepunktene `/healthz` og `/readyz`.
+3. Oppdater [`Dockerfile`](./Dockerfile) slik at den bygger og pakker din applikasjon fra `./app`-mappen.
+
+### 📦 Slik pakker du appen i en container for SKIP (`Dockerfile`-sjekkliste)
+
+Når du lager eller tilpasser [`Dockerfile`](./Dockerfile) for din egen applikasjon, bør du følge mønsteret i dette repoet for å oppfylle [kravene til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements):
+
+1. **Bruk Multi-Stage Builds:**
+   Del `Dockerfile` inn i et bygg-steg (`FROM ... AS builder`) hvor kompilering og nedlasting av avhengigheter skjer, og et eget kjøretids-steg til slutt som kun kopierer inn det ferdige resultatet (`COPY --from=builder ...`). Da blir container-imaget lite, raskt å rulle ut og inneholder færrest mulig sårbarheter.
+2. **Minimalt kjøretids-image:**
+   * For kompilerte språk som **Go** eller **Rust**: Bruk `FROM scratch` eller `FROM gcr.io/distroless/static-debian12`.
+   * For andre språk (**Node.js**, **Python**, **Java**, **.NET**): Bruk gjerne *distroless*-images (f.eks. `gcr.io/distroless/nodejs22-debian12`, `gcr.io/distroless/java21-debian12`) eller offisielle `-slim`/`-alpine`-varianter.
+3. **Kjør som ikke-root bruker (`USER 150:150`):**
+   Av sikkerhetshensyn tillater ikke SKIP at containere kjører som `root`. Legg alltid inn `USER 150:150` før `ENTRYPOINT`/`CMD` i siste steg av `Dockerfile`.
+4. **Lytt på en uprivilegert port (f.eks. `8080`):**
+   Siden containeren kjører som bruker `150`, har den ikke lov til å binde seg til porter under `1024` (som port `80`). Konfigurer appen til å lytte på f.eks. `8080`, dokumenter det med `EXPOSE 8080`, og bruk samme port i [`manifestdemo/app.jsonnet`](./manifestdemo/app.jsonnet).
+5. **Husk at rot-filsystemet er skrivebeskyttet (`read-only`):**
+   På SKIP kjører containere med skrivebeskyttet filsystem som standard. Appen din bør derfor ikke forsøke å skrive filer direkte til `/app`-mappen under kjøring.
+6. **Tilpass manifestet (`manifestdemo/app.jsonnet`):**
+   Oppdater applikasjonsnavn, image-referanse (`ghcr.io/kartverket/<ditt-repo>:...`), port og hostnavn i [`manifestdemo/app.jsonnet`](./manifestdemo/app.jsonnet), og valider med `skipctl manifest validate --path manifestdemo/app.jsonnet`.
 
 ---
 
