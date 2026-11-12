@@ -1,1 +1,16 @@
+# IDE / Editor
 .vscode/*
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment & local secrets
+.env
+.env.*
+
+# Local build binaries
+app/app
+*.exe
+

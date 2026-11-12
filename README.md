@@ -2,11 +2,11 @@
 
 > Dette er et demo- og mal-repo som viser hvordan du pakker en applikasjon i en container med **Docker** og **GitHub Actions**, og ruller den ut på [**SKIP-plattformen**](https://skip.kartverket.no) ved hjelp av **ArgoKit**, **skipctl**, **Argo CD** og **Skiperator**.
 >
-> **💡 Språk- og rammeverksagnostisk:** Oppsettet i dette repoet er uavhengig av programmeringsspråk og rammeverk. Så lenge applikasjonen din kan pakkes i en container, kan du bruke denne repo-strukturen til å bygge og kjøre alt fra mikrotjenester, API-er og bakgrunnsjobber til frontend-applikasjoner på SKIP.
+> **Språk- og rammeverksagnostisk:** Oppsettet i dette repoet er uavhengig av programmeringsspråk og rammeverk. Så lenge applikasjonen din kan pakkes i en container, kan du bruke denne repo-strukturen til å bygge og kjøre alt fra mikrotjenester, API-er og bakgrunnsjobber til frontend-applikasjoner på SKIP.
 
 ## Innhold
 
-1. **Applikasjonskode (`app/`):** Mappen der selve kildekoden til applikasjonen ligger. Du står helt fritt til å velge programmeringsspråk og rammeverk – det eneste som kreves for en typisk web-applikasjon eller tjeneste på SKIP er at den lytter på en nettverksport (her `8080`) og tilbyr endepunkter for helsesjekker (`/healthz` og `/readyz`).
+1. **Applikasjonskode (`app/`):** Mappen der selve kildekoden til applikasjonen ligger. Du står helt fritt til å velge programmeringsspråk og rammeverk. Det eneste som kreves for en typisk web-applikasjon eller tjeneste på SKIP er at den lytter på en nettverksport (her `8080`) og tilbyr endepunkter for helsesjekker (`/healthz` og `/readyz`).
 2. **Konteinerisering (`Dockerfile`):** En multi-stage `Dockerfile` som bygger applikasjonen fra `app/` og pakker den i et minimalt kjøretids-image som kjører som ikke-root bruker (`150:150`), i tråd med [kravene til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements).
 3. **Kontinuerlig Integrasjon (CI):** En GitHub Actions-workflow (`.github/workflows/workflow.yaml`) som automatisk bygger `Dockerfile` og publiserer container-imaget til `ghcr.io` (GitHub Container Registry) ved hver push til `main`.
 4. **Kontinuerlig Leveranse (CD):**
@@ -40,7 +40,7 @@ Fordi applikasjonen bygges og kjøres i en container, trenger du kun noen få fe
 
 > **Tips:** `skipctl` har innebygd støtte for å evaluere og formatere Jsonnet-filer, så du trenger ikke å installere `jsonnet` separat for å validere eller rendre manifester.
 
-### 🍎 macOS
+### macOS
 
 På macOS anbefales det å bruke [Homebrew](https://brew.sh/):
 
@@ -62,7 +62,7 @@ For å oppdatere `skipctl` senere:
 brew upgrade kartverket/taps/skipctl
 ```
 
-### 🐧 Linux
+### Linux
 
 På Linux kan du bruke din distribusjons pakkebehandler (f.eks. `apt` på Ubuntu/Debian eller `dnf` på Fedora) i kombinasjon med [Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux) eller nedlasting av binærfil fra GitHub:
 
@@ -78,20 +78,25 @@ brew install skipctl
 
 *Alternativt uten Homebrew:* Last ned siste Linux-versjon av `skipctl` direkte fra [GitHub Releases (`kartverket/skipctl`)](https://github.com/kartverket/skipctl/releases), gjør filen kjørbar (`chmod +x skipctl`) og flytt den til `/usr/local/bin/`.
 
-### 🪟 Windows
+### Windows
 
-På Windows kan du enten jobbe via **WSL2 (Windows Subsystem for Linux)** (anbefalt, følg da Linux-instruksjonene over) eller direkte i **PowerShell / Windows Terminal** med `winget`:
+På administrerte Windows-maskiner har man normalt ikke lokale administratorrettigheter som standard. For å installere utviklerverktøy må du derfor enten:
+* **Installere via virksomhetens programvareportal:** Sjekk først om verktøyene du trenger (f.eks. Git, VS Code, WSL, Docker/Rancher Desktop e.l.) ligger tilgjengelig for selvbetjent installasjon på maskinen din.
+* **Elevere til administratorrettigheter ved behov:** Hvis et verktøy ikke ligger i programvareportalen, eller installasjonen krever utvidede rettigheter (f.eks. ved bruk av `winget`, oppsett av WSL2/container-verktøy eller endring av systemets `PATH`), må du først aktivere midlertidige administratorrettigheter på maskinen.
 
+Når du jobber på Windows kan du enten bruke **WSL2 (Windows Subsystem for Linux)** (anbefalt, følg da Linux-instruksjonene over inne i WSL-terminalen) eller jobbe direkte i **PowerShell / Windows Terminal**.
+
+**Installere Git og container-verktøy via `winget`:**
 ```powershell
-# 1. Installer Git og Docker Desktop via winget
+# Kjøres med eleverte rettigheter dersom påkrevd:
 winget install --id Git.Git -e
 winget install --id Docker.DockerDesktop -e
 ```
 
 **Installere `skipctl` på Windows:**
 1. Gå til [GitHub Releases for `skipctl`](https://github.com/kartverket/skipctl/releases) og last ned siste versjon for Windows (`skipctl_Windows_x86_64.zip`).
-2. Pakk ut `skipctl.exe` og legg filen i en mappe som ligger i systemets `PATH`-miljøvariabel.
-3. Verifiser installasjonen i PowerShell:
+2. Pakk ut `skipctl.exe` og legg filen i en mappe som ligger i din `PATH`-miljøvariabel (du kan legge til en egen mappe i brukerens *User PATH* uten administratorrettigheter, eller elevere rettigheter for å legge den i systemets `PATH`).
+3. Verifiser installasjonen i en ny PowerShell-terminal:
    ```powershell
    skipctl -v
    ```
@@ -141,9 +146,9 @@ skipctl manifest format --path manifestdemo/app.jsonnet
 
 ---
 
-## 🚀 Lag din egen app og pakk den i en container!
+## Lag din egen app og pakk den i en container!
 
-Dette repoet er bygget opp som en generell mal du kan kopiere eller ta utgangspunkt i når du vil lage din egen applikasjon og rulle den ut på SKIP. SKIP krever ikke et bestemt programmeringsspråk eller rammeverk – kontrakten mellom applikasjonen din og plattformen er selve **containeren**.
+Dette repoet er bygget opp som en generell mal du kan kopiere eller ta utgangspunkt i når du vil lage din egen applikasjon og rulle den ut på SKIP. SKIP krever ikke et bestemt programmeringsspråk eller rammeverk, da kontrakten mellom applikasjonen din og plattformen er selve **containeren**.
 
 ### Repo-strukturen
 
@@ -151,14 +156,14 @@ Ved å følge strukturen i dette repoet får du et ryddig skille mellom **applik
 
 ```text
 mitt-app-repo/
-├── app/                          # 💻 Kildekode, avhengigheter og ressurser for din applikasjon
-├── Dockerfile                    # 📦 Oppskrift for å bygge og pakke app/ inn i et container-image
+├── app/                          # Kildekode, avhengigheter og ressurser for din applikasjon
+├── Dockerfile                    # Oppskrift for å bygge og pakke app/ inn i et container-image
 ├── .github/
 │   └── workflows/
-│       └── workflow.yaml         # ⚙️ Bygger Dockerfile automatisk og pusher image til ghcr.io
+│       └── workflow.yaml         # Bygger Dockerfile automatisk og pusher image til ghcr.io
 ├── manifestdemo/
-│   └── app.jsonnet               # ☸️ ArgoKit-manifest som forteller Skiperator hvordan containeren skal kjøres
-└── argokit/                      # 📚 Git-submodule med ArgoKit-biblioteket for lokal validering med skipctl
+│   └── app.jsonnet               # ArgoKit-manifest som forteller Skiperator hvordan containeren skal kjøres
+└── argokit/                      # Git-submodule med ArgoKit-biblioteket for lokal validering med skipctl
 ```
 
 > **Tips:** GitHub Actions-workflowen i [`.github/workflows/workflow.yaml`](./.github/workflows/workflow.yaml) bruker `${{ github.repository }}` automatisk. Det betyr at hvis du oppretter et nytt repo med denne strukturen, vil workflowen automatisk bygge `Dockerfile` i rotmappen og publisere imaget til `ghcr.io/kartverket/<ditt-repo-navn>` uten at du trenger å endre workflow-filen!
@@ -178,7 +183,7 @@ Erstatt innholdet i [`app/`](./app) med din egen applikasjon, skrevet i det spr�
 1. **Bruk Multi-Stage Builds:**
    Del `Dockerfile` inn i et bygg-steg (`FROM <bygg-image> AS builder`) hvor kompilering, transpiling og nedlasting av avhengigheter skjer, og et eget kjøretids-steg til slutt som kun kopierer inn det ferdige resultatet (`COPY --from=builder ...`). Da blir container-imaget lite, raskt å rulle ut og inneholder færrest mulig sårbarheter.
 2. **Velg et minimalt kjøretids-image:**
-   Bruk et så slankt base-image som mulig i siste steg – for eksempel `scratch`, [Distroless](https://github.com/GoogleContainerTools/distroless) eller offisielle `-slim`/`-alpine`-varianter som kun inneholder selve kjøretidsmiljøet applikasjonen din trenger.
+   Bruk et så slankt base-image som mulig i siste steg, for eksempel `scratch`, [Distroless](https://github.com/GoogleContainerTools/distroless) eller offisielle `-slim`/`-alpine`-varianter som kun inneholder selve kjøretidsmiljøet applikasjonen din trenger.
 3. **Kjør som ikke-root bruker (`USER 150:150`):**
    Av sikkerhetshensyn tillater ikke SKIP at containere kjører som `root`. Legg alltid inn `USER 150:150` før `ENTRYPOINT`/`CMD` i siste steg av `Dockerfile`.
 4. **Håndter skrivebeskyttet filsystem (`read-only root filesystem`):**

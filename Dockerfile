@@ -1,5 +1,5 @@
 # Steg 1: Bygg applikasjonen
-FROM golang:1.25 AS builder
+FROM golang:1.26 AS builder
 
 WORKDIR /usr/src/app
 

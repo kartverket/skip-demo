@@ -19,7 +19,7 @@ local readinessProbe = application.probe(
 
 application.new('skip-demo', 'ghcr.io/kartverket/skip-demo:latest', 8080)
 + application.withRoutingProvider('Standard')
-+ application.forHostnames('skip-demo.atgcp1-sandbox.kartverket.cloud')
++ application.forHostnames('skip-demo.eksempel.kartverket.cloud')
 + application.withReplicas(
   initial=2,
   max=5,
