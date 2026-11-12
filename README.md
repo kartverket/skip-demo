@@ -80,17 +80,22 @@ brew install skipctl
 
 ### Windows
 
-På administrerte Windows-maskiner har man normalt ikke lokale administratorrettigheter som standard. For å installere utviklerverktøy må du derfor enten:
-* **Installere via virksomhetens programvareportal:** Sjekk først om verktøyene du trenger (f.eks. Git, VS Code, WSL, Docker/Rancher Desktop e.l.) ligger tilgjengelig for selvbetjent installasjon på maskinen din.
-* **Elevere til administratorrettigheter ved behov:** Hvis et verktøy ikke ligger i programvareportalen, eller installasjonen krever utvidede rettigheter (f.eks. ved bruk av `winget`, oppsett av WSL2/container-verktøy eller endring av systemets `PATH`), må du først aktivere midlertidige administratorrettigheter på maskinen.
+På administrerte Windows-maskiner har man normalt ikke lokale administratorrettigheter som standard, og fordi Docker Desktop krever betalt lisens brukes **Podman Desktop** på Windows. For å installere utviklerverktøy må du enten:
+* **Installere via virksomhetens programvareportal:** Sjekk først om verktøyene du trenger (f.eks. Git, VS Code, WSL, Podman Desktop e.l.) ligger tilgjengelig for selvbetjent installasjon på maskinen din.
+* **Elevere til administratorrettigheter ved behov:** Hvis et verktøy ikke ligger i programvareportalen, eller installasjonen krever utvidede rettigheter (f.eks. ved bruk av `winget`, oppsett av WSL2/Podman eller endring av systemets `PATH`), må du først aktivere midlertidige administratorrettigheter på maskinen.
 
-Når du jobber på Windows kan du enten bruke **WSL2 (Windows Subsystem for Linux)** (anbefalt, følg da Linux-instruksjonene over inne i WSL-terminalen) eller jobbe direkte i **PowerShell / Windows Terminal**.
+Når du jobber på Windows kan du enten bruke **WSL2 (Windows Subsystem for Linux)** (anbefalt, følg da Linux-instruksjonene over inne i WSL-terminalen) eller jobbe direkte i **PowerShell / Windows Terminal** med **Podman Desktop** (bruk da `podman` i stedet for `docker` når du bygger og kjører containere).
 
-**Installere Git og container-verktøy via `winget`:**
+**Installere Git og Podman Desktop via `winget`:**
 ```powershell
 # Kjøres med eleverte rettigheter dersom påkrevd:
 winget install --id Git.Git -e
-winget install --id Docker.DockerDesktop -e
+winget install --id RedHat.Podman -e
+winget install --id RedHat.Podman-Desktop -e
+
+# Initialiser og start Podman-maskinen (kan også gjøres i Podman Desktop):
+podman machine init
+podman machine start
 ```
 
 **Installere `skipctl` på Windows:**
