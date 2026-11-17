@@ -25,6 +25,17 @@
 * Tilkoblet Kartverkets intranett/VPN for tilgang til [Argo CD](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd).
 * En applikasjon som du ønsker å pakke i en container og kjøre på SKIP.
 
+## Kompetansekrav
+
+For å få godt utbytte av denne demoen bør du ha:
+
+* **Grunnleggende kjennskap til terminal og Git:** Kunne kjøre kommandoer i terminalen, klone et repo og gjøre vanlige Git-operasjoner (`commit`, `push`, Pull Requests) mot GitHub.
+* **Grunnleggende forståelse av containere (Docker/Podman):** Vite hva en `Dockerfile` og et container-image er, og hvordan en applikasjon bygges og kjøres i en container.
+* **Grunnleggende forståelse av nettverk og HTTP:** Kjennskap til konsepter som nettverksporter, miljøvariabler og HTTP-endepunkter (f.eks. for helsesjekker).
+* **Overordnet kjennskap til CI/CD og GitOps (en fordel):** Grunnleggende forståelse av automatisert bygging (GitHub Actions) og deklarative konfigurasjonsfiler. Du trenger *ikke* inngående forkunnskaper om Kubernetes eller Jsonnet, da **Skiperator** og **ArgoKit** abstraherer bort det meste av kompleksiteten.
+
+> **Trenger du en oppfriskning?** Se [`Jukselappen.md`](Jukselappen.md) for en enkel jukselapp med de vanligste kommandoene i terminalen, Git, Docker, Podman og `skipctl`.
+
 ---
 
 ## Nødvendige verktøy (Windows, macOS og Linux)
@@ -229,3 +240,4 @@ Oppdater applikasjonsnavn, image-referanse (`ghcr.io/kartverket/<ditt-repo>:...`
 * [`.github/workflows/workflow.yaml`](./.github/workflows/workflow.yaml): GitHub Actions-workflow som bygger `Dockerfile` og pusher container-imaget til GHCR.
 * [`manifestdemo/app.jsonnet`](./manifestdemo/app.jsonnet): Eksempel på en Skiperator `Application`-ressurs skrevet med **ArgoKit v2**. *Merk: I en reell utrulling skal denne filen ligge i teamets apps-repo slik at den plukkes opp av Argo CD.*
 * [`argokit/`](./argokit): [ArgoKit](https://github.com/kartverket/argokit)-repoet lagt til som en Git-submodule for tilgang til Jsonnet-bibliotekene i `argokit/v2`.
+* [`Jukselappen.md`](Jukselappen.md): Oppslagsverk og jukselapp med grunnleggende kommandoer for terminal, Git, Docker, Podman og `skipctl`.
