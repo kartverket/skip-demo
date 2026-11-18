@@ -142,8 +142,9 @@ Med Docker bygger og kjører du applikasjonen på akkurat samme måte uansett hv
 docker build -t skip-demo:local .
 docker run --rm -p 8080:8080 skip-demo:local
 ```
-
+Her lønner det seg å se i dockerfilen for å bekrefte hvilken port applikasjonen lytter på (her `8080`), og at den eksponeres med `-p <host-port>:<container-port>`.
 Åpne deretter [http://localhost:8080](http://localhost:8080) i nettleseren for å teste applikasjonen! Helsesjekkene kan verifiseres på [http://localhost:8080/healthz](http://localhost:8080/healthz) og [http://localhost:8080/readyz](http://localhost:8080/readyz).
+Når du har en applikasjon du er fornøyd med, kan du gå videre til å prøve å pushe den til github og rulle den ut på SKIP.
 
 ### 3. Rendre og validere manifestet med `skipctl`
 
@@ -203,7 +204,7 @@ Erstatt innholdet i [`app/`](./app) med din egen applikasjon, skrevet i det spr�
 3. **Kjør som ikke-root bruker (`USER 150:150`):**
    Av sikkerhetshensyn tillater ikke SKIP at containere kjører som `root`. Legg alltid inn `USER 150:150` før `ENTRYPOINT`/`CMD` i siste steg av `Dockerfile`.
 4. **Håndter skrivebeskyttet filsystem (`read-only root filesystem`):**
-   På SKIP kjører containere med skrivebeskyttet rot-filsystem som standard. Applikasjonen bør derfor ikke forsøke å skrive filer direkte til arbeidsmappen under kjøring (bruk eventuelt minne, ekstern lagring eller et montert volum ved behov).
+   På SKIP kjører containere med skrivebeskyttet rot-filsystem som standard, men om applikasjoner trenger å mellomlagre data kan dette gjøres til `/tmp`. Applikasjonen bør derfor ikke forsøke å skrive filer direkte til arbeidsmappen under kjøring (bruk eventuelt minne, ekstern lagring eller et montert volum ved behov).
 5. **Eksponer riktig port og startkommando:**
    Dokumenter porten med `EXPOSE 8080` og definer hvordan applikasjonen startes med `ENTRYPOINT` eller `CMD`.
 
