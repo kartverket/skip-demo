@@ -62,6 +62,7 @@ brew install --cask docker
 
 # 2. Installer skipctl fra Kartverkets Homebrew-tap
 brew tap kartverket/taps
+brew trust kartverket/taps
 brew install skipctl
 
 # Sjekk at skipctl er installert
@@ -83,7 +84,7 @@ sudo apt update
 sudo apt install -y git docker.io
 
 # 2. Installer skipctl (via Homebrew på Linux)
-brew tap kartverket/taps
+brew trust kartverket/taps
 brew install skipctl
 ```
 
