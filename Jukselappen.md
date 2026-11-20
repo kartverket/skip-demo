@@ -29,6 +29,53 @@ git config --global user.name "Ditt Navn"
 git config --global user.email "din.epost@kartverket.no"
 ```
 
+### Sette opp signerte commits (`Signed Commits`)
+I Kartverket krever mange repoer at commits er kryptografisk signert (**Verified** på GitHub) for å bekrefte avsenderen. Den enkleste måten å sette opp dette på (på macOS, Linux og Windows) er å signere med en **SSH-nøkkel**:
+
+#### 1. Finn eller opprett en SSH-nøkkel
+```bash
+# Sjekk om du allerede har en SSH-nøkkel (se etter f.eks. id_ed25519.pub):
+ls ~/.ssh
+
+# Hvis du ikke har en nøkkel fra før, opprett en ny (trykk Enter for standard filplassering):
+ssh-keygen -t ed25519 -C "din.epost@kartverket.no"
+
+# Skriv ut den offentlige nøkkelen og kopier hele linjen (starter med "ssh-ed25519 ..."):
+cat ~/.ssh/id_ed25519.pub
+```
+
+#### 2. Legg til nøkkelen som `Signing Key` på GitHub
+1. Gå til [GitHub](https://github.com) → klikk på profilbildet ditt øverst til høyre → **Settings**.
+2. Velg **SSH and GPG keys** i venstre meny og klikk på **New SSH key**.
+3. Gi nøkkelen en tittel (f.eks. `Signering - Arbeidsmaskin`).
+4. **Viktig:** Under **Key type**, velg **`Signing Key`** (ikke *Authentication Key*).
+5. Lim inn den offentlige nøkkelen (`id_ed25519.pub`) i **Key**-feltet og klikk **Add SSH key**.
+
+#### 3. Konfigurer Git til å signere commits automatisk
+Kjør disse kommandoene i terminalen for å skru på automatisk signering i Git:
+```bash
+# Fortell Git at SSH skal brukes til signering:
+git config --global gpg.format ssh
+
+# Pek Git til den offentlige SSH-nøkkelen din:
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+
+# Skru på automatisk signering for alle commits og tags:
+git config --global commit.gpgsign true
+git config --global tag.gpgsign true
+```
+> **Viktig:** E-posten du har satt i `git config --global user.email` må være lagt til og verifisert under **Settings → Emails** på GitHub-kontoen din for at commitene skal få merket **Verified**.
+
+#### 4. Signere commits (og fikse en usignert commit)
+Når `commit.gpgsign` er satt til `true`, blir hver vanlige `git commit -m "..."` automatisk signert.
+```bash
+# Signere en enkelt commit manuelt (-S):
+git commit -S -m "Min signerte endring"
+
+# Hvis din siste lokale commit ble laget uten signatur, kan du signere den på nytt slik:
+git commit --amend --no-edit -S
+```
+
 ### Klone repoet og hente undermoduler (`submodules`)
 Dette repoet bruker [ArgoKit](https://github.com/kartverket/argokit) som en Git-submodule. Derfor må undermodulen også lastes ned:
 ```bash
@@ -126,6 +173,53 @@ docker images
 docker system prune
 ```
 
+### Laste opp et image til et GitHub-repo (`ghcr.io`)
+
+Til vanlig bygger og publiserer GitHub Actions container-imaget automatisk når du pusher kode til `main`. Hvis du i stedet ønsker å bygge og laste opp et image direkte fra din egen maskin til GitHub Container Registry (`ghcr.io`), følger du disse stegene fra innlogging til opplasting:
+
+#### 1. Opprett et Personal Access Token (PAT) på GitHub
+For å logge inn fra terminalen trenger du et tilgangstoken (ikke ditt vanlige GitHub-passord):
+1. Gå til [GitHub](https://github.com) → klikk på profilbildet ditt øverst til høyre → **Settings**.
+2. Bla helt ned i venstre meny og klikk på **Developer settings**.
+3. Velg **Personal access tokens** → **Tokens (classic)** → **Generate new token** → **Generate new token (classic)**.
+4. Gi tokenet en beskrivelse (f.eks. `ghcr-login`), velg utløpstid, og kryss av for **`write:packages`** (dette huker også av `read:packages` automatisk).
+5. Klikk **Generate token** nederst og **kopier tokenet** med én gang.
+6. **Viktig for `kartverket`-repoer:** Klikk på **Configure SSO** til høyre for det nye tokenet og velg **Authorize** for `kartverket`.
+
+#### 2. Logg inn mot `ghcr.io` i terminalen
+Kjør kommandoen under (bytt ut `<ditt-github-brukernavn>` med brukernavnet ditt, med kun små bokstaver). Når terminalen spør etter `Password:`, limer du inn tokenet du nettopp kopierte:
+
+```bash
+# Logg inn interaktivt (fungerer i alle terminaler og PowerShell):
+docker login ghcr.io -u <ditt-github-brukernavn>
+
+# Alternativt på macOS / Linux / WSL via standard input:
+echo "<ditt-token>" | docker login ghcr.io -u <ditt-github-brukernavn> --password-stdin
+```
+*(Husk å bytte ut `docker` med `podman` dersom du bruker Podman).*
+
+#### 3. Bygg eller navngi (tag) imaget for GitHub-repoet
+GitHub kobler container-imaget til riktig repo basert på navneformatet `ghcr.io/<eier-eller-org>/<repo-navn>:<tag>`. **Merk:** Hele adressen må skrives med små bokstaver.
+
+> **Tips for Mac med Apple Silicon (M1/M2/M3/M4):** Serverne på SKIP kjører på `linux/amd64`-arkitektur. Hvis du bygger et image lokalt på en nyere Mac for å kjøre det på SKIP, må du legge på `--platform linux/amd64`.
+
+```bash
+# Alternativ A: Bygg imaget direkte med riktig navn og plattform for SKIP:
+docker build --platform linux/amd64 -t ghcr.io/kartverket/<repo-navn>:latest .
+
+# Alternativ B: Gi en ny tag til et image du allerede har bygget lokalt (f.eks. skip-demo:local):
+docker tag skip-demo:local ghcr.io/kartverket/<repo-navn>:latest
+```
+
+#### 4. Last opp (push) imaget til GitHub
+Når imaget er bygget og tagget, laster du det opp til GitHub Container Registry:
+
+```bash
+docker push ghcr.io/kartverket/<repo-navn>:latest
+```
+
+Når opplastingen er ferdig, finner du imaget igjen under **Packages** til høyre på hovedsiden til GitHub-repoet ditt.
+
 ---
 
 ## 4. `skipctl` (Validering av SKIP-manifester)
@@ -163,3 +257,9 @@ skipctl manifest format --path manifestdemo/app.jsonnet
 * **`permission denied` inne i containeren ved oppstart:**
   Containere på SKIP kjører som en uprivilegert bruker (`USER 150:150`) og med skrivebeskyttet filsystem.
   * *Løsning:* Sørg for at applikasjonen lytter på en port over `1024` (f.eks. `8080`), og at den ikke forsøker å skrive filer direkte til disk ved oppstart.
+* **`denied: permission_denied` eller `unauthorized` når du kjører `docker push ghcr.io/...`:**
+  Du mangler gyldig innlogging eller skriverettigheter mot GitHub Container Registry.
+  * *Løsning:* Sjekk at du har kjørt `docker login ghcr.io`, at ditt Personal Access Token (classic) har rettigheten `write:packages`, at du har valgt **Configure SSO → Authorize** for `kartverket` på tokenet, og at hele image-adressen kun bruker små bokstaver.
+* **`Commits must have verified signatures` når du forsøker å pushe eller merge på GitHub:**
+  Repoet krever signerte commits, men commiten din ble laget uten signatur (eller med en nøkkel/e-post som ikke er registrert som `Signing Key` på GitHub).
+  * *Løsning:* Følg stegene under [Sette opp signerte commits](#sette-opp-signerte-commits-signed-commits) over, signer den siste commiten på nytt med `git commit --amend --no-edit -S`, og push med `git push --force-with-lease`.
