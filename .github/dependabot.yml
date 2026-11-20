@@ -1,0 +1,25 @@
+version: 2
+updates:
+  # ArgoKit-submodulen
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
+    schedule:
+      interval: "daily"
+
+  # Actions i .github/workflows (inkludert pharos)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+
+  # Base-imaget i Dockerfile
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
+
+  # Go-avhengigheter i app/
+  - package-ecosystem: "gomod"
+    directory: "/app"
+    schedule:
+      interval: "daily"

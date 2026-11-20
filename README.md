@@ -7,8 +7,8 @@
 ## Innhold
 
 1. **Applikasjonskode (`app/`):** Mappen der selve kildekoden til applikasjonen ligger. Du står helt fritt til å velge programmeringsspråk og rammeverk. Det eneste som kreves for en typisk web-applikasjon eller tjeneste på SKIP er at den lytter på en nettverksport (her `8080`) og tilbyr endepunkter for helsesjekker (`/healthz` og `/readyz`).
-2. **Konteinerisering (`Dockerfile`):** En multi-stage `Dockerfile` som bygger applikasjonen fra `app/` og pakker den i et minimalt kjøretids-image som kjører som ikke-root bruker (`150:150`), i tråd med [kravene til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements).
-3. **Kontinuerlig Integrasjon (CI):** En GitHub Actions-workflow (`.github/workflows/workflow.yaml`) som automatisk bygger `Dockerfile` og publiserer container-imaget til `ghcr.io` (GitHub Container Registry) ved hver push til `main`.
+2. **Konteinerisering (`Dockerfile`):** En multi-stage `Dockerfile` som bygger applikasjonen fra `app/` og pakker den i et minimalt kjøretids-image som kjører som ikke-root bruker (`150:150`), i tråd med [kravene til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements) og [retningslinjene for Kubernetes på SKIP](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/kubernetes/retningslinjer-for-kubernetes) (Pod Security Standards nivå *restricted*).
+3. **Kontinuerlig Integrasjon (CI):** GitHub Actions-workflows i `.github/workflows/` som kjører Go-tester, bygger `Dockerfile` og publiserer container-imaget til `ghcr.io` (GitHub Container Registry) ved hver push til `main` (på Pull Requests bygges imaget kun for å verifisere at bygget går gjennom, uten å pushe). I tillegg skannes imaget med Pharos, avhengigheter kontrolleres (dependency review og Dependabot), og manifestet valideres med `skipctl`.
 4. **Kontinuerlig Leveranse (CD):**
    * [**ArgoKit v2**](https://skip.kartverket.no/docs/applikasjon-utrulling/argokit/getting-started) brukes for å definere applikasjonsmanifestet i Jsonnet (`manifestdemo/app.jsonnet`).
    * [**skipctl**](https://skip.kartverket.no/docs/applikasjon-utrulling/skipctl/get-started) brukes til å rendre, formatere og validere manifestet mot kjente Kubernetes- og Skiperator-skjemaer.
@@ -143,6 +143,15 @@ Med Docker bygger og kjører du applikasjonen på akkurat samme måte uansett hv
 docker build -t skip-demo:local .
 docker run --rm -p 8080:8080 skip-demo:local
 ```
+For å gjenskape sikkerhetskonteksten Skiperator bruker på SKIP (UID/GID `150`, ingen capabilities, skrivebeskyttet rot-filsystem der kun `/tmp` er skrivbart) kan du i stedet kjøre:
+
+```bash
+docker run --rm --read-only --tmpfs /tmp --user 150:150 --cap-drop ALL \
+  --security-opt no-new-privileges -p 8080:8080 skip-demo:local
+```
+
+Fungerer applikasjonen din her, er den klar for SKIP.
+
 Her lønner det seg å se i dockerfilen for å bekrefte hvilken port applikasjonen lytter på (her `8080`), og at den eksponeres med `-p <host-port>:<container-port>`.
 Åpne deretter [http://localhost:8080](http://localhost:8080) i nettleseren for å teste applikasjonen! Helsesjekkene kan verifiseres på [http://localhost:8080/healthz](http://localhost:8080/healthz) og [http://localhost:8080/readyz](http://localhost:8080/readyz).
 Når du har en applikasjon du er fornøyd med, kan du gå videre til å prøve å pushe den til github og rulle den ut på SKIP.
@@ -174,13 +183,20 @@ Ved å følge strukturen i dette repoet får du et ryddig skille mellom **applik
 
 ```text
 mitt-app-repo/
-├── app/                          # Kildekode, avhengigheter og ressurser for din applikasjon
+├── app/                          # Kildekode, avhengigheter, ressurser og tester for din applikasjon
 ├── Dockerfile                    # Oppskrift for å bygge og pakke app/ inn i et container-image
+├── .dockerignore                 # Holder Docker build-konteksten liten
 ├── .github/
+│   ├── CODEOWNERS                # Hvilket team som eier repoet
+│   ├── dependabot.yml            # Automatiske oppdateringer (argokit, actions, Docker, Go)
+│   ├── pull_request_template.md  # Sjekkliste i Pull Requests
 │   └── workflows/
-│       └── workflow.yaml         # Bygger Dockerfile automatisk og pusher image til ghcr.io
+│       ├── workflow.yaml             # Tester, bygger Dockerfile, pusher image til ghcr.io, skanner med Pharos og deployer til apps-repo
+│       ├── validate-manifest.yaml    # Validerer manifestet med skipctl på Pull Requests
+│       └── dependency-review.yaml    # Sårbarhets- og lisenskontroll av avhengigheter på Pull Requests
 ├── manifestdemo/
 │   └── app.jsonnet               # ArgoKit-manifest som forteller Skiperator hvordan containeren skal kjøres
+├── apps-repo-eksempel/           # Slik ser det tilhørende apps-repoet ut (mappestruktur, config.json, Octo STS-tillit)
 └── argokit/                      # Git-submodule med ArgoKit-biblioteket for lokal validering med skipctl
 ```
 
@@ -190,28 +206,32 @@ mitt-app-repo/
 
 Erstatt innholdet i [`app/`](./app) med din egen applikasjon, skrevet i det språket og rammeverket som passer oppgaven best. For at applikasjonen skal fungere godt i en container på SKIP, bør den oppfylle tre grunnleggende ting:
 
-1. **Lytt på en uprivilegert port (f.eks. `8080`):** Applikasjonen må binde seg til en port over `1024` (f.eks. `0.0.0.0:8080`), siden containeren ikke kjører med `root`-rettigheter.
+1. **Lytt på en uprivilegert port (f.eks. `8080`):** Bind deg helst til en port over `1024` (f.eks. `0.0.0.0:8080`), siden containeren ikke kjører som `root`. Skiperator gir kun `NET_BIND_SERVICE` til containere som deklarerer en port under `1024`, og dropper alle andre Linux-capabilities.
 2. **Eksponer helsesjekk-endepunkter (`/healthz` og `/readyz`):** Lag endepunkter som returnerer HTTP `200 OK` når applikasjonen lever (*liveness*) og når den er klar til å ta imot trafikk (*readiness*).
 3. **Konfigurasjon via miljøvariabler:** Les inn innstillinger og eventuelle hemmeligheter fra miljøvariabler, slik at samme container-image kan brukes på tvers av miljøer (lokalt, dev, test og prod).
 
 ### Steg 2: Pakk applikasjonen i en container (`Dockerfile`)
 
-[`Dockerfile`](./Dockerfile) i rotmappen definerer hvordan koden i `app/` bygges og pakkes til et kjørbart container-image. Når du tilpasser `Dockerfile` til din applikasjon, bør du følge disse prinsippene for å oppfylle [kravene til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements):
+[`Dockerfile`](./Dockerfile) i rotmappen definerer hvordan koden i `app/` bygges og pakkes til et kjørbart container-image. Når du tilpasser `Dockerfile` til din applikasjon, bør du følge disse prinsippene for å oppfylle [kravene til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements) (containerisert, anbefalt `scratch`-baseimage, publisert til GHCR) og [retningslinjene for Kubernetes](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/kubernetes/retningslinjer-for-kubernetes) (alle workloads følger Pod Security Standards *restricted*):
 
 1. **Bruk Multi-Stage Builds:**
    Del `Dockerfile` inn i et bygg-steg (`FROM <bygg-image> AS builder`) hvor kompilering, transpiling og nedlasting av avhengigheter skjer, og et eget kjøretids-steg til slutt som kun kopierer inn det ferdige resultatet (`COPY --from=builder ...`). Da blir container-imaget lite, raskt å rulle ut og inneholder færrest mulig sårbarheter.
 2. **Velg et minimalt kjøretids-image:**
    Bruk et så slankt base-image som mulig i siste steg, for eksempel `scratch`, [Distroless](https://github.com/GoogleContainerTools/distroless) eller offisielle `-slim`/`-alpine`-varianter som kun inneholder selve kjøretidsmiljøet applikasjonen din trenger.
 3. **Kjør som ikke-root bruker (`USER 150:150`):**
-   Av sikkerhetshensyn tillater ikke SKIP at containere kjører som `root`. Legg alltid inn `USER 150:150` før `ENTRYPOINT`/`CMD` i siste steg av `Dockerfile`.
+   Skiperator setter `runAsUser: 150`, `runAsGroup: 150`, `runAsNonRoot: true`, `fsGroup: 150`, `allowPrivilegeEscalation: false`, dropper alle capabilities og bruker seccomp-profilen `RuntimeDefault` på alle containere (se [`pkg/util/constants.go`](https://github.com/kartverket/skiperator/blob/main/pkg/util/constants.go) i Skiperator). Plattformen tvinger altså UID/GID 150 uansett hva imaget sier, men legg likevel inn `USER 150:150` før `ENTRYPOINT`/`CMD` i siste steg av `Dockerfile`, slik at containeren oppfører seg likt lokalt som på SKIP.
 4. **Håndter skrivebeskyttet filsystem (`read-only root filesystem`):**
-   På SKIP kjører containere med skrivebeskyttet rot-filsystem som standard, men om applikasjoner trenger å mellomlagre data kan dette gjøres til `/tmp`. Applikasjonen bør derfor ikke forsøke å skrive filer direkte til arbeidsmappen under kjøring (bruk eventuelt minne, ekstern lagring eller et montert volum ved behov).
+   Skiperator setter `readOnlyRootFilesystem: true` og monterer et `emptyDir`-volum på `/tmp` i alle containere. Applikasjonen kan derfor skrive midlertidige filer til `/tmp`, men ikke andre steder (f.eks. arbeidsmappen). Trenger du flere skrivbare mapper, kan du montere `emptyDir`-volumer med `filesFrom` i `Application`-manifestet. Test lokalt med `docker run --read-only --tmpfs /tmp --user 150:150 ...` (se [`Jukselappen.md`](Jukselappen.md)).
 5. **Eksponer riktig port og startkommando:**
    Dokumenter porten med `EXPOSE 8080` og definer hvordan applikasjonen startes med `ENTRYPOINT` eller `CMD`.
 
 ### Steg 3: Tilpass manifestet (`manifestdemo/app.jsonnet`)
 
 Oppdater applikasjonsnavn, image-referanse (`ghcr.io/kartverket/<ditt-repo>:...`), port og hostnavn i [`manifestdemo/app.jsonnet`](./manifestdemo/app.jsonnet), og valider lokalt med `skipctl manifest validate --path manifestdemo/app.jsonnet`.
+
+> **Om hostnavn:** `skip-demo.atkv3-dev.kartverket-intern.cloud` i manifestet er kun en plassholder; bytt ut appnavn og cluster. På SKIP følger hostnavn mønsteret `<app>.<cluster>.kartverket-intern.cloud` (kun tilgjengelig internt, f.eks. `skip-demo.atkv3-dev.kartverket-intern.cloud`) eller `<app>.<cluster>.kartverket.cloud` (**åpnes mot internett**, se [Sjekkliste før internetteksponering](https://skip.kartverket.no/docs/applikasjon-utrulling/sjekkliste-f%C3%B8r-internett-eksponering)). Se [URLer og sertifikat for tjenester på SKIP](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/kubernetes/urler-og-sertifikat-for-tjenester-p%C3%A5-skip). Tilgjengelige clustere er `atkv3-dev`, `atkv3-prod`, `atgcp1-dev` og `atgcp1-prod`.
+>
+> **Om ressurser:** Retningslinjene krever at `requests` og `limits` settes for CPU/minne på alle containere. Manifestet i demoen setter dette med `application.resources.withRequests(...)` og `application.resources.withLimits(...)`. Verdiene (`50m` CPU / `64Mi` minne som request og `128Mi` minne som limit) er kun et utgangspunkt: følg med på faktisk forbruk i Grafana og juster. Tommelfingerregel fra SKIP: minne-limit ca. dobbelt så høy som gjennomsnittlig bruk, og ingen CPU-limit.
 
 ---
 
@@ -223,11 +243,12 @@ Oppdater applikasjonsnavn, image-referanse (`ghcr.io/kartverket/<ditt-repo>:...`
    * Push til `main` trigger automatisk workflowen definert i `.github/workflows/workflow.yaml`.
    * Workflowen bygger et nytt container-image basert på `Dockerfile`.
    * Imaget tagges med commit-SHA og `latest`, og pushes til `ghcr.io/kartverket/<repo-navn>`.
+   * Pharos skanner imaget for sårbarheter, og `deploy`-jobben oppdaterer image-taggen i apps-repoet (se [Apps-repoet](#apps-repoet-slik-deployes-det-til-skip)).
 4. **ArgoKit og `skipctl`:**
    * ArgoKit v2 Jsonnet-malen (`manifestdemo/app.jsonnet`) brukes for å definere `Application`-manifestet.
    * `skipctl manifest validate` brukes for å verifisere at manifestet er gyldig.
 5. **Apps-repo:**
-   * Teamets [apps-repo](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo) oppdateres med det validerte applikasjonsmanifestet.
+   * Teamets [apps-repo](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo) oppdateres med det validerte applikasjonsmanifestet. Apps-repoet har en fast mappestruktur (`env/<cluster>/<namespace>/app.yaml`), og SKIP anbefaler å starte med vanlige YAML-filer (render Jsonnet-en med `skipctl manifest render`) mens du lærer systemet. Image-oppdateringen automatiseres av `deploy`-jobben i `workflow.yaml`, se [Deploye automatisk ved push](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo#deploye-automatisk-ved-push).
 6. **Synkronisering og utrulling:**
    * **Argo CD** oppdager endringen i apps-repoet og synkroniserer `Application`-manifestet til Kubernetes-clusteret (automatisk eller ved manuell "Sync" i Argo CD).
    * **Skiperator** oppdager endringen i `Application`-ressursen og genererer/oppdaterer de underliggende Kubernetes-ressursene (Deployment, Service, Gateway API-ruting, NetworkPolicy osv.).
@@ -235,11 +256,106 @@ Oppdater applikasjonsnavn, image-referanse (`ghcr.io/kartverket/<ditt-repo>:...`
 
 ---
 
+## Apps-repoet: slik deployes det til SKIP
+
+Applikasjonsmanifestet hører hjemme i teamets **apps-repo**, ikke i kildekode-repoet ([hva er et apps-repo?](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo)). Her ligger `manifestdemo/` kun for at demoen skal være selvforklarende. Mappen [`apps-repo-eksempel/`](./apps-repo-eksempel) viser hvordan det tilhørende apps-repoet ser ut:
+
+```text
+apps-repo-eksempel/
+├── .github/chainguard/
+│   └── skip-demo.sts.yaml            # Octo STS-tillit: lar CI i skip-demo skrive til apps-repoet
+└── env/
+    └── atkv3-dev/                    # Cluster: atkv3-dev, atkv3-prod, atgcp1-dev eller atgcp1-prod
+        └── skip-demo-main/           # Namespace. Må starte med teamets prefiks (f.eks. appnavnet)
+            ├── app.yaml              # Skiperator Application (rendret fra manifestdemo/app.jsonnet)
+            └── config.json           # Valgfritt: tool, autoSync, prune, selfHeal
+```
+
+* **Namespace** opprettes automatisk av Argo CD når mappen dukker opp. Prefikset avtales med SKIP når apps-repoet settes opp ([Komme i gang med Argo CD](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/komme-i-gang-med-argocd)).
+* **`config.json`** styrer synkroniseringen ([dokumentasjon](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/configuring-apps-repositories-with-configjson)). Auto-sync er på som standard i dev, men av i prod.
+* **Plain YAML eller Jsonnet?** SKIP anbefaler vanlig YAML mens du lærer systemet. Argo CD støtter også Jsonnet. `app.yaml` i eksempelet er det samme manifestet som `skipctl manifest render` gir fra `manifestdemo/app.jsonnet`.
+
+### Automatisk deploy fra CI (`deploy`-jobben)
+
+Etter bygg og push endrer `deploy`-jobben i [`workflow.yaml`](./.github/workflows/workflow.yaml) `spec.image` i apps-repoet til `ghcr.io/<repo>:sha-<commit>`, committer og pusher. Argo CD ser endringen og synkroniserer, og Skiperator oppdaterer Deployment. Autentiseringen bruker [Octo STS](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/tilgang-til-repoer-med-tokens-fra-github-actions) i stedet for langlevde PAT-er. Slik tar du den i bruk:
+
+1. Legg `.github/chainguard/<repo-navn>.sts.yaml` i **apps-repoet** (se [eksempelet](./apps-repo-eksempel/.github/chainguard/skip-demo.sts.yaml)) og fyll inn org- og repo-ID.
+2. Sett repository-variablene `APPS_REPO` (f.eks. `kartverket/skip-demo-apps`) og `APPS_MANIFEST_PATH` (f.eks. `env/atkv3-dev/skip-demo-main/app.yaml`) under *Settings → Secrets and variables → Actions → Variables*.
+3. Push til `main`. Uten variablene hoppes jobben over.
+
+> **Rollback:** Argo CD har innebygd rollback (*History and rollback*), men imaget må fortsatt finnes i GHCR. Se [Hvordan bruke Argo CD](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hvordan-bruke-argocd). Feilsøking: [Troubleshooting på SKIP](https://skip.kartverket.no/docs/kom-i-gang/troubleshoot/troubleshooting-on-skip).
+
+---
+
+## Sjekkliste: dette skal du ha laget
+
+Workshop-oppgaven er å sette opp det samme for din egen app. Når du er ferdig skal følgende stemme:
+
+- [ ] `app/` svarer 200 på `/healthz` og `/readyz`, lytter på `PORT` (standard `8080`) og stopper pent på SIGTERM.
+- [ ] `docker build` fungerer, og containeren kjører med `--read-only --tmpfs /tmp --user 150:150 --cap-drop ALL`.
+- [ ] `Dockerfile` er multi-stage, ender i `scratch` (eller tilsvarende), har `USER 150:150` og `EXPOSE`.
+- [ ] CI kjører tester, bygger og pusher til `ghcr.io/kartverket/<repo>` ved push til `main`.
+- [ ] `skipctl manifest validate` er grønn for manifestet, og `resources`, probes, `routingProvider: Standard` og ingress er satt.
+- [ ] Manifestet ligger i apps-repoet under `env/<cluster>/<namespace>/`, og Argo CD viser appen som *Synced* og *Healthy*.
+- [ ] Appen svarer på ingress-hostnavnet over HTTPS.
+
+---
+
+## Ekstraoppgave: Bygg ut GitHub Actions-oppsettet
+
+*For deg som er ferdig med resten tidlig.* Repoet har allerede en solid grunnkonfigurasjon i `.github/`. Les gjennom den først, den er ment som en mal du kan ta med deg til egne repoer. Se også [GitHub Actions på SKIP](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions).
+
+| Fil | Hva den gjør | Dokumentasjon |
+| :--- | :--- | :--- |
+| [`workflow.yaml`](./.github/workflows/workflow.yaml) | `test`-jobb (`go vet`, `go test`), `build`-jobb (bygger og pusher til GHCR), `pharos`-jobb (skanner imaget etter push til `main`) og `deploy`-jobb (se under) | [Pharos](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/pharos) |
+| (`deploy`-jobben i `workflow.yaml`) | Oppdaterer image-taggen i apps-repoet via Octo STS | [Apps-repo](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo#deploye-automatisk-ved-push) |
+| [`validate-manifest.yaml`](./.github/workflows/validate-manifest.yaml) | Kjører `skipctl manifest validate` når manifestet endres i en PR | [skipctl manifester](https://skip.kartverket.no/docs/applikasjon-utrulling/skipctl/manifests) |
+| [`dependency-review.yaml`](./.github/workflows/dependency-review.yaml) | Kommenterer sårbarheter og lisensproblemer i endrede avhengigheter på PR-er | [Dependency review](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/dependency-review) |
+| [`dependabot.yml`](./.github/dependabot.yml) | Daglige PR-er for `argokit`-submodulen, GitHub Actions, Docker-imaget og Go-modulen | [Dependabot](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/github/dependabot) |
+
+Alle actions er pinnet til commit-SHA med versjonen som kommentar, og hver jobb har minst mulig `permissions`. Dependabot holder SHA-ene oppdatert.
+
+Lag en egen branch og én Pull Request per oppgave, slik at du får testet at workflowene kjører på `pull_request` før du merger til `main`. Feilsøk i **Actions**-fanen på GitHub.
+
+### Oppgave A: Skann imaget hver natt
+
+Pharos skanner i dag bare imaget som akkurat er bygget. Nye sårbarheter oppdages også i imager som ikke er endret, så SKIP anbefaler å skanne [minst én gang i døgnet](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/pharos).
+
+* [ ] Lag `.github/workflows/pharos-nightly.yaml` som kjører på `schedule` (`cron`) og skanner `ghcr.io/<repo>:latest`.
+* [ ] Gi jobben permissions `actions: read`, `packages: read`, `contents: read` og `security-events: write`.
+* [ ] Legg til `workflow_dispatch:` slik at du kan kjøre den manuelt for å teste.
+* [ ] Sjekk resultatene under **Security → Code scanning**.
+
+### Oppgave B: Semver-tagger ved release
+
+I dag får imaget kun taggene `sha-<commit>` og `latest`. Legg til støtte for versjonerte releaser.
+
+* [ ] Trigg `workflow.yaml` også på `push` av tags som matcher `v*.*.*`.
+* [ ] Legg til `type=semver,pattern={{version}}` i `docker/metadata-action` og sørg for at `latest` fortsatt kun settes på `main`.
+* [ ] Lag en tag (`git tag v0.1.0 && git push --tags`) og sjekk at riktige tagger dukker opp under **Packages**.
+* [ ] Tenk gjennom: hva bør `pharos`-jobben (som i dag kun kjører på `main`) gjøre ved tag-bygg?
+
+### Oppgave C (utfordring): Eget namespace per branch, med opprydding
+
+Apps-repoet støtter ett namespace per branch eller PR (`<prefiks>-<branch>`), noe som lar deg teste endringer isolert før merge. Utvid `deploy`-jobben slik at den også kjører for andre branches enn `main`, og kopierer manifestet til `env/<cluster>/<prefiks>-<branch>/`. Lag deretter en `on: delete`-workflow som fjerner mappen igjen når branchen slettes, slik at du ikke bruker opp clusterkapasitet. Se eksemplene nederst i [Hva er et apps-repo](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo#deploye-automatisk-ved-push). Obs: eksemplet i dokumentasjonen bruker `kubectl patch --local ... -o yaml`, som kun skriver til stdout og ikke endrer filen. Bruk `yq -i` eller omdiriger output. Hostnavnet i manifestet må også være unikt per branch.
+
+### Oppgave D: Gjør `skipctl` tilgjengelig som eget steg
+
+`validate-manifest.yaml` laster ned `skipctl` med en fast versjon. Utvid den slik at den også:
+
+* [ ] Kjører `skipctl manifest render --path manifestdemo/app.jsonnet` og laster opp resultatet som artifact (`actions/upload-artifact`), slik at reviewere kan se det ferdige YAML-manifestet.
+* [ ] Sjekker at Jsonnet-filen er formatert (`skipctl manifest format` etterfulgt av `git diff --exit-code`).
+
+---
+
 ## Nøkkelfiler i dette repoet
 
 * [`app/`](./app): Kildekoden til applikasjonen som skal kjøres på SKIP.
 * [`Dockerfile`](./Dockerfile): Multi-stage oppskrift for å bygge applikasjonen i `app/` og pakke den til et minimalt, sikkert container-image.
-* [`.github/workflows/workflow.yaml`](./.github/workflows/workflow.yaml): GitHub Actions-workflow som bygger `Dockerfile` og pusher container-imaget til GHCR.
+* [`.github/workflows/`](./.github/workflows): GitHub Actions-workflows for test, bygg og push til GHCR ([`workflow.yaml`](./.github/workflows/workflow.yaml)), Pharos-skanning, manifestvalidering og dependency review.
+* [`apps-repo-eksempel/`](./apps-repo-eksempel): Eksempel på hvordan det tilhørende apps-repoet er strukturert (`env/<cluster>/<namespace>/`, `config.json` og Octo STS-tillit).
+* [`.github/dependabot.yml`](./.github/dependabot.yml): Automatiske oppdateringer av `argokit`, GitHub Actions, Docker-imaget og Go-avhengigheter.
+* [`.github/CODEOWNERS`](./.github/CODEOWNERS): Hvilket team som eier repoet. Bytt ut teamet når du bruker repoet som mal.
 * [`manifestdemo/app.jsonnet`](./manifestdemo/app.jsonnet): Eksempel på en Skiperator `Application`-ressurs skrevet med **ArgoKit v2**. *Merk: I en reell utrulling skal denne filen ligge i teamets apps-repo slik at den plukkes opp av Argo CD.*
 * [`argokit/`](./argokit): [ArgoKit](https://github.com/kartverket/argokit)-repoet lagt til som en Git-submodule for tilgang til Jsonnet-bibliotekene i `argokit/v2`.
 * [`Jukselappen.md`](Jukselappen.md): Oppslagsverk og jukselapp med grunnleggende kommandoer for terminal, Git, Docker, Podman og `skipctl`.

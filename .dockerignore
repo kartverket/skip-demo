@@ -1,0 +1,15 @@
+# Holder Docker build-konteksten liten og unngår å lekke filer inn i bygget.
+# (Dockerfile kopierer kun ./app, men konteksten sendes uansett til Docker-daemonen.)
+.git
+.github
+.idea
+.vscode
+.env
+.env.*
+.DS_Store
+argokit
+manifestdemo
+*.md
+Dockerfile
+.dockerignore
+app/app

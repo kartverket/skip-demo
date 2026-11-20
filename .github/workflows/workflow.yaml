@@ -10,13 +10,44 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+# Avbryt pågående kjøringer på samme PR når det pushes nye commits.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: app/go.mod
+          cache-dependency-path: app/go.sum
+
+      - name: Vet
+        working-directory: app
+        run: go vet ./...
+
+      - name: Test
+        working-directory: app
+        run: go test -race ./...
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     # Definerer rettigheter for jobben
     permissions:
       contents: read
       packages: write
+    outputs:
+      image_digest: ${{ steps.build-image.outputs.digest }}
 
     steps:
       - name: Checkout repository
@@ -42,12 +73,82 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Docker image
+        id: build-image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
         with:
           context: .
           # Pusher kun om det ikke er en pull request
-          push: ${{ github.event_name != 'pull_request' }} 
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Skanner Dockerfile og det nylig publiserte imaget for sårbarheter.
+  # Resultatene vises under Security -> Code scanning og i Utviklerportalen.
+  # https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/pharos
+  pharos:
+    name: Run Pharos
+    needs: build
+    runs-on: ubuntu-latest
+    # Imaget må være pushet før det kan skannes, så vi skanner kun ved push til hovedbranchen
+    if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+    permissions:
+      actions: read
+      packages: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Run Pharos
+        uses: kartverket/pharos@aee5b200a4bb042954127dd1446408d2841fcc29 # v0.7.1
+        with:
+          image_url: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image_digest }}
+
+  # Oppdaterer image-taggen i teamets apps-repo, slik at Argo CD synkroniserer ny versjon til clusteret.
+  # Se https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo#deploye-automatisk-ved-push
+  #
+  # Jobben hoppes over til du har satt repository-variablene (Settings -> Secrets and variables -> Actions -> Variables):
+  #   APPS_REPO           f.eks. kartverket/skip-demo-apps
+  #   APPS_MANIFEST_PATH  f.eks. env/atkv3-dev/skip-demo-main/app.yaml
+  # og lagt inn tillit i apps-repoet (se apps-repo-eksempel/.github/chainguard/skip-demo.sts.yaml).
+  deploy:
+    name: Deploy to apps-repo
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch && vars.APPS_REPO != ''
+    permissions:
+      contents: read
+      id-token: write # Påkrevd for Octo STS
+
+    steps:
+      - name: Get short-lived token for apps-repo
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
+        id: octo-sts
+        with:
+          scope: ${{ vars.APPS_REPO }}
+          identity: ${{ github.event.repository.name }}
+
+      - name: Checkout apps-repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: ${{ vars.APPS_REPO }}
+          token: ${{ steps.octo-sts.outputs.token }}
+
+      - name: Update image in manifest
+        env:
+          MANIFEST: ${{ vars.APPS_MANIFEST_PATH }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+        run: yq -i '.spec.image = strenv(IMAGE)' "$MANIFEST"
+
+      - name: Commit and push
+        run: |
+          if git diff --quiet; then
+            echo "Ingen endringer å deploye"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Deploy ${{ github.repository }}@${{ github.sha }}"
+          git pull --rebase
+          git push

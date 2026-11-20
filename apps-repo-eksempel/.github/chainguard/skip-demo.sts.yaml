@@ -1,0 +1,12 @@
+# Octo STS: lar GitHub Actions i kildekode-repoet få et kortlevd token som kan skrive til dette apps-repoet.
+# Filen må ligge i APPS-REPOET (ikke i kildekode-repoet), og filnavnet (uten .sts.yaml) er "identity" som brukes i workflowen.
+# https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/tilgang-til-repoer-med-tokens-fra-github-actions
+#
+# Erstatt <ORG-ID> og <REPO-ID> med de numeriske ID-ene (feltet "id") fra
+#   https://api.github.com/orgs/kartverket
+#   https://api.github.com/repos/kartverket/skip-demo
+# Eldre repoer uten ID-er i subject-claimet bruker: repo:kartverket/skip-demo:ref:refs/heads/main
+issuer: https://token.actions.githubusercontent.com
+subject: repo:kartverket@<ORG-ID>/skip-demo@<REPO-ID>:ref:refs/heads/main
+permissions:
+  contents: write

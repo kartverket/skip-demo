@@ -1,0 +1,43 @@
+name: Validate manifest
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "manifestdemo/**"
+      - "apps-repo-eksempel/env/**"
+      - "argokit"
+      - ".github/workflows/validate-manifest.yaml"
+
+permissions:
+  contents: read
+
+env:
+  # Oppdater manuelt ved behov: https://github.com/kartverket/skipctl/releases
+  SKIPCTL_VERSION: v1.15.4
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # argokit er en git-submodule som Jsonnet-manifestet importerer fra
+          submodules: true
+
+      - name: Install skipctl
+        run: |
+          base="https://github.com/kartverket/skipctl/releases/download/${SKIPCTL_VERSION}"
+          curl -fsSLO "${base}/skipctl_Linux_x86_64.tar.gz"
+          curl -fsSLO "${base}/checksums.txt"
+          grep ' skipctl_Linux_x86_64.tar.gz$' checksums.txt | sha256sum -c -
+          tar -xzf skipctl_Linux_x86_64.tar.gz skipctl
+          sudo install -m 0755 skipctl /usr/local/bin/skipctl
+          skipctl -v
+
+      - name: Validate manifest
+        run: skipctl manifest validate --no-analytics --path manifestdemo/app.jsonnet
+
+      - name: Validate apps-repo example
+        run: skipctl manifest validate --no-analytics --path apps-repo-eksempel/env

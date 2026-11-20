@@ -255,8 +255,12 @@ skipctl manifest format --path manifestdemo/app.jsonnet
   Mappen `argokit/` er tom fordi Git-submodulen ikke er lastet ned ennå.
   * *Løsning:* Kjør `git submodule update --init --recursive` i rotmappen av repoet.
 * **`permission denied` inne i containeren ved oppstart:**
-  Containere på SKIP kjører som en uprivilegert bruker (`USER 150:150`) og med skrivebeskyttet filsystem.
-  * *Løsning:* Sørg for at applikasjonen lytter på en port over `1024` (f.eks. `8080`), og at den ikke forsøker å skrive filer direkte til disk ved oppstart.
+  Containere på SKIP kjører som en uprivilegert bruker (UID/GID `150`), uten Linux-capabilities og med skrivebeskyttet rot-filsystem. Kun `/tmp` er skrivbart.
+  * *Løsning:* Sørg for at applikasjonen lytter på en port over `1024` (f.eks. `8080`), og at den kun skriver filer til `/tmp`. Du kan gjenskape SKIP-miljøet lokalt med:
+    ```bash
+    docker run --rm --read-only --tmpfs /tmp --user 150:150 --cap-drop ALL \
+      --security-opt no-new-privileges -p 8080:8080 skip-demo:local
+    ```
 * **`denied: permission_denied` eller `unauthorized` når du kjører `docker push ghcr.io/...`:**
   Du mangler gyldig innlogging eller skriverettigheter mot GitHub Container Registry.
   * *Løsning:* Sjekk at du har kjørt `docker login ghcr.io`, at ditt Personal Access Token (classic) har rettigheten `write:packages`, at du har valgt **Configure SSO → Authorize** for `kartverket` på tokenet, og at hele image-adressen kun bruker små bokstaver.
