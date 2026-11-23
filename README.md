@@ -16,20 +16,18 @@ Følg [Opprette nytt repo på GitHub](https://skip.kartverket.no/docs/kom-i-gang
 * Legg inn en [`CODEOWNERS`](./.github/CODEOWNERS)-fil med ditt eget team, og gi teamet tilgang til repoet.
 * Gi repoet et navn som er et gyldig appnavn (små bokstaver og bindestrek). Workflowen publiserer imaget til `ghcr.io/kartverket/<repo-navn>`.
 
-Se [Sjekkliste: dette skal du ha laget](#sjekkliste-dette-skal-du-ha-laget) for å verifisere at du er i mål.
-
 ## Workshopløype
 
-Følg stegene i denne rekkefølgen. Først blir du kjent med demoen, så setter du opp og tilpasser ditt eget repo. Til slutt publiserer du imaget og ruller ut appen via teamets apps-repo.
+Først blir du kjent med demoen, så setter du opp og tilpasser ditt eget repo. Til slutt publiserer du imaget og ruller ut appen via teamets apps-repo.
 
 1. Sjekk [forutsetningene](#forutsetninger-på-skip) og installer [nødvendige verktøy](#nødvendige-verktøy-windows-macos-og-linux).
 2. Kjør demoen lokalt i [Kom i gang lokalt](#kom-i-gang-lokalt) og valider eksempelmanifestet med `skipctl`.
 3. Opprett repoet ditt etter [Klargjør workshop-repoet](#klargjør-workshop-repoet).
-4. Tilpass app, Dockerfile og manifest under [Lag din egen app og pakk den i en container](#lag-din-egen-app-og-pakk-den-i-en-container).
+4. Tilpass app, eller lag din egen (her kan du bruke AI), Dockerfile og manifest under [Lag din egen app og pakk den i en container](#lag-din-egen-app-og-pakk-den-i-en-container).
 5. Sett opp utrulling via [apps-repoet](#apps-repoet-slik-deployes-det-til-skip), og følg deretter stegene for [publisering og deploy](#publiser-og-rull-ut).
-6. Bruk [sjekklisten](#sjekkliste-dette-skal-du-ha-laget) for å bekrefte at du er ferdig. Ekstraoppgavene er valgfrie.
+6. Bruk [sjekklisten](#sjekkliste-dette-skal-du-ha-laget) for å bekrefte at du er ferdig. Har du tid til over? Se på ekstraoppgavene.
 
-Repoet viser en komplett løype: `app/` inneholder kildekoden, `Dockerfile` pakker den som et container-image, GitHub Actions tester og publiserer imaget til GHCR, og et `Application`-manifest i teamets apps-repo beskriver hvordan Skiperator skal kjøre appen. Argo CD synkroniserer manifestet til clusteret.
+`app/` inneholder kildekoden til appen, `Dockerfile` pakker den som et container-image, GitHub Actions under `.github\workflows` tester og publiserer imaget til GHCR, og et `Application`-manifest i teamets apps-repo beskriver hvordan Skiperator skal kjøre appen. Argo CD synkroniserer manifestet til clusteret.
 
 ---
 
@@ -193,8 +191,6 @@ skipctl manifest render --path manifestdemo/app.jsonnet
 # Valider manifestet mot Kubernetes- og Skiperator-skjemaer (laster ned skjemaene, så du må ha nettilgang):
 skipctl manifest validate --path manifestdemo/app.jsonnet
 
-# Formater Jsonnet-filen (endrer filen "in place", sjekk med git diff):
-skipctl manifest format --path manifestdemo/app.jsonnet
 ```
 
 Se hvordan resultatet av `render` henger sammen med `manifestdemo/app.jsonnet`: appnavn, image, ingress, replikaer, ressurser og helsesjekker i Jsonnet blir til `spec` i Skiperator-`Application`.
@@ -205,7 +201,7 @@ Se hvordan resultatet av `render` henger sammen med `manifestdemo/app.jsonnet`: 
 
 Nå som du har sett at demoen virker, lager du ditt eget repo i [`kartverket`](https://github.com/kartverket)-organisasjonen. Bruk reglene fra [Mål for workshopen](#mål-for-workshopen).
 
-**1. Opprett repoet** i nettleseren (*+ → New repository*, Owner `kartverket`, Internal, ingen lisens), eller med GitHub CLI:
+**1. Opprett repoet** i nettleseren (*+ → New repository*, Owner `kartverket`, Internal/eksternal, ingen lisens), eller med GitHub CLI:
 
 ```bash
 gh repo create kartverket/<mitt-app-navn> --internal --clone
@@ -272,18 +268,18 @@ mitt-app-repo/
 
 Erstatt innholdet i [`app/`](./app) med din egen applikasjon, skrevet i det språket og rammeverket som passer oppgaven best. For at applikasjonen skal fungere godt i en container på SKIP, bør den oppfylle tre grunnleggende ting:
 
-1. **Lytt på en uprivilegert port (f.eks. `8080`):** Bind deg helst til en port over `1024` (f.eks. `0.0.0.0:8080`), siden containeren ikke kjører som `root`. Skiperator gir kun `NET_BIND_SERVICE` til containere som deklarerer en port under `1024`, og dropper alle andre Linux-capabilities.
+1. **Lytt på en uprivilegert port (f.eks. `8080`):** Bind deg helst til en port over `1024` (f.eks. `0.0.0.0:8080`), siden containeren ikke kjører som `root`.
 2. **Eksponer helsesjekk-endepunkter (`/healthz` og `/readyz`):** Lag endepunkter som returnerer HTTP `200 OK` når applikasjonen lever (*liveness*) og når den er klar til å ta imot trafikk (*readiness*).
 3. **Konfigurasjon via miljøvariabler:** Les inn innstillinger og eventuelle hemmeligheter fra miljøvariabler, slik at samme container-image kan brukes på tvers av miljøer (lokalt, dev, test og prod).
 
 ### Steg 2: Pakk applikasjonen i en container (`Dockerfile`)
 
-[`Dockerfile`](./Dockerfile) i rotmappen definerer hvordan koden i `app/` bygges og pakkes til et kjørbart container-image. Når du tilpasser `Dockerfile` til din applikasjon, bør du følge disse prinsippene for å oppfylle [kravene til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements) (containerisert, anbefalt `scratch`-baseimage, publisert til GHCR) og [retningslinjene for Kubernetes](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/kubernetes/retningslinjer-for-kubernetes) (alle workloads følger Pod Security Standards *restricted*):
+[`Dockerfile`](./Dockerfile) i rotmappen definerer hvordan koden i `app/` bygges og pakkes til et kjørbart container-image. SKIPs [krav til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements) er at applikasjonen er containerisert og imaget publiseres til et register clusteret har tilgang til; SKIP anbefaler `scratch` som baseimage når det passer. Workloads følger [retningslinjene for Kubernetes](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/kubernetes/retningslinjer-for-kubernetes) og Pod Security Standards nivå *restricted*. Følgende er anbefalt praksis når du tilpasser Dockerfile:
 
-1. **Bruk Multi-Stage Builds:**
-   Del `Dockerfile` inn i et bygg-steg (`FROM <bygg-image> AS builder`) hvor kompilering, transpiling og nedlasting av avhengigheter skjer, og et eget kjøretids-steg til slutt som kun kopierer inn det ferdige resultatet (`COPY --from=builder ...`). Da blir container-imaget lite, raskt å rulle ut og inneholder færrest mulig sårbarheter.
-2. **Velg et minimalt kjøretids-image:**
-   Bruk et så slankt base-image som mulig i siste steg, for eksempel `scratch`, [Distroless](https://github.com/GoogleContainerTools/distroless) eller offisielle `-slim`/`-alpine`-varianter som kun inneholder selve kjøretidsmiljøet applikasjonen din trenger.
+1. **Bruk gjerne Multi-Stage Build:**
+   Skill byggemiljøet fra kjøretidsimaget. Kopier bare det applikasjonen trenger for å kjøre, for eksempel binærfil, statiske filer og CA-sertifikater. Dette reduserer unødvendig innhold i det endelige imaget.
+2. **Velg et lite og egnet kjøretids-image:**
+   SKIP anbefaler `scratch` når applikasjonen kan kjøre uten et operativsystemmiljø. Ellers kan du bruke et lite og vedlikeholdt runtime-image som inneholder avhengighetene appen trenger. Et minimalt image reduserer angrepsflaten, men erstatter ikke oppdateringer og sårbarhetsskanning.
 3. **Kjør som ikke-root bruker (`USER 150:150`):**
    Skiperator setter `runAsUser: 150`, `runAsGroup: 150`, `runAsNonRoot: true`, `fsGroup: 150`, `allowPrivilegeEscalation: false`, dropper alle capabilities og bruker seccomp-profilen `RuntimeDefault` på alle containere (se [`pkg/util/constants.go`](https://github.com/kartverket/skiperator/blob/main/pkg/util/constants.go) i Skiperator). Plattformen tvinger altså UID/GID 150 uansett hva imaget sier, men legg likevel inn `USER 150:150` før `ENTRYPOINT`/`CMD` i siste steg av `Dockerfile`, slik at containeren oppfører seg likt lokalt som på SKIP.
 4. **Håndter skrivebeskyttet filsystem (`read-only root filesystem`):**
@@ -295,9 +291,9 @@ Erstatt innholdet i [`app/`](./app) med din egen applikasjon, skrevet i det spr�
 
 Oppdater applikasjonsnavn, image-referanse (`ghcr.io/kartverket/<ditt-repo>:...`), port og hostnavn i [`manifestdemo/app.jsonnet`](./manifestdemo/app.jsonnet), og valider lokalt med `skipctl manifest validate --path manifestdemo/app.jsonnet`.
 
-> **Om hostnavn:** `skip-demo.atkv3-dev.kartverket-intern.cloud` i manifestet er kun en plassholder; bytt ut appnavn og cluster. På SKIP følger hostnavn mønsteret `<app>.<cluster>.kartverket-intern.cloud` (kun tilgjengelig internt, f.eks. `skip-demo.atkv3-dev.kartverket-intern.cloud`) eller `<app>.<cluster>.kartverket.cloud` (**åpnes mot internett**, se [Sjekkliste før internetteksponering](https://skip.kartverket.no/docs/applikasjon-utrulling/sjekkliste-f%C3%B8r-internett-eksponering)). Se [URLer og sertifikat for tjenester på SKIP](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/kubernetes/urler-og-sertifikat-for-tjenester-p%C3%A5-skip). Tilgjengelige clustere er `atkv3-dev`, `atkv3-prod`, `atgcp1-dev` og `atgcp1-prod`.
+> **Om hostnavn:** `skip-demo.atkv3-dev.kartverket-intern.cloud` i manifestet er kun en plassholder; bytt ut appnavn og cluster. På SKIP følger hostnavn mønsteret `<app>.<cluster>.kartverket-intern.cloud` (kun tilgjengelig internt, f.eks. `skip-demo.atkv3-dev.kartverket-intern.cloud`) eller `<app>.<cluster>.kartverket.cloud` (**åpnes mot internett**, se [Sjekkliste før internetteksponering](https://skip.kartverket.no/docs/applikasjon-utrulling/sjekkliste-f%C3%B8r-internett-eksponering)). Se [URLer og sertifikat for tjenester på SKIP](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/kubernetes/urler-og-sertifikat-for-tjenester-p%C3%A5-skip). Tilgjengelige clustere er `atkv3-sandbox`, `atkv3-dev`, `atkv3-prod`, `atgcp1-sandbox`, `atgcp1-dev` og `atgcp1-prod`.
 >
-> **Om ressurser:** Retningslinjene krever at `requests` og `limits` settes for CPU/minne på alle containere. Manifestet i demoen setter dette med `application.resources.withRequests(...)` og `application.resources.withLimits(...)`. Verdiene (`50m` CPU / `64Mi` minne som request og `128Mi` minne som limit) er kun et utgangspunkt: følg med på faktisk forbruk i Grafana og juster. Tommelfingerregel fra SKIP: minne-limit ca. dobbelt så høy som gjennomsnittlig bruk, og ingen CPU-limit.
+> **Om ressurser:** Retningslinjene krever at `requests` og `limits` settes for CPU/minne på alle containere. Manifestet i demoen setter dette med `application.resources.withRequests(...)` og `application.resources.withLimits(...)`. Verdiene (`50m` CPU / `64Mi` minne som request og `128Mi` minne som limit) er kun et utgangspunkt: følg med på faktisk forbruk i Grafana og juster.
 
 ---
 
