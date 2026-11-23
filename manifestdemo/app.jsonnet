@@ -17,7 +17,9 @@ local readinessProbe = application.probe(
   initialDelay=0,
 );
 
-application.new('skip-demo', 'ghcr.io/kartverket/skip-demo:latest', 8080)
+local image = 'ghcr.io/kartverket/skip-demo:latest';
+
+application.new('skip-demo', image, 8080)
 + application.withRoutingProvider('Standard')
 // Placeholder: <app>.<cluster>.kartverket-intern.cloud er kun tilgjengelig internt.
 // Domener under kartverket.cloud åpnes mot internett (se sjekkliste før internetteksponering).

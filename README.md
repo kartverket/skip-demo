@@ -307,7 +307,7 @@ Oppdater applikasjonsnavn, image-referanse (`ghcr.io/kartverket/<ditt-repo>:...`
    * ArgoKit v2 Jsonnet-malen (`manifestdemo/app.jsonnet`) brukes for å definere `Application`-manifestet.
    * `skipctl manifest validate` brukes for å verifisere at manifestet er gyldig.
 5. **Apps-repo:**
-   * Teamets [apps-repo](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo) oppdateres med det validerte applikasjonsmanifestet. Apps-repoet har en fast mappestruktur (`env/<cluster>/<namespace>/app.yaml`), og SKIP anbefaler å starte med vanlige YAML-filer (render Jsonnet-en med `skipctl manifest render`) mens du lærer systemet. Image-oppdateringen automatiseres av `deploy`-jobben i `workflow.yaml`, se [Deploye automatisk ved push](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo#deploye-automatisk-ved-push).
+   * Teamets [apps-repo](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo) oppdateres med Jsonnet-manifestet i `env/<cluster>/<namespace>/app.jsonnet`. Argo CD støtter Jsonnet, og ArgoKit gir gjenbrukbare funksjoner for å definere Skiperator-ressurser. I denne workshopen bruker du Jsonnet i apps-repoet; `skipctl manifest render` er kun for å inspisere YAML-resultatet lokalt. Image-oppdateringen automatiseres av `deploy`-jobben i `workflow.yaml`, se [Deploye automatisk ved push](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo#deploye-automatisk-ved-push).
 6. **Synkronisering og utrulling:**
    * **Argo CD** oppdager endringen i apps-repoet og synkroniserer `Application`-manifestet til Kubernetes-clusteret (automatisk eller ved manuell "Sync" i Argo CD).
    * **Skiperator** oppdager endringen i `Application`-ressursen og genererer/oppdaterer de underliggende Kubernetes-ressursene (Deployment, Service, Gateway API-ruting, NetworkPolicy osv.).
@@ -323,34 +323,37 @@ Applikasjonsmanifestet hører hjemme i teamets **apps-repo**, ikke i kildekode-r
 apps-repo-eksempel/
 ├── .github/chainguard/
 │   └── skip-demo.sts.yaml            # Octo STS-tillit: lar CI i skip-demo skrive til apps-repoet
-└── env/
-    └── atkv3-dev/                    # Cluster: atkv3-dev, atkv3-prod, atgcp1-dev eller atgcp1-prod
-        └── skip-demo-main/           # Namespace. Må starte med teamets prefiks (f.eks. appnavnet)
-            ├── app.yaml              # Skiperator Application (rendret fra manifestdemo/app.jsonnet)
-            └── config.json           # Valgfritt: tool, autoSync, prune, selfHeal
+├── env/
+│   └── atkv3-dev/                    # Cluster: atkv3-dev, atkv3-prod, atgcp1-dev eller atgcp1-prod
+│       └── skip-demo-main/           # Namespace. Må starte med teamets prefiks (f.eks. appnavnet)
+│           ├── app.jsonnet           # Skiperator Application definert med ArgoKit
+│           └── config.json           # Valgfritt: tool, autoSync, prune, selfHeal
+└── argokit/                          # ArgoKit Git-submodule som Jsonnet-manifestet importerer
 ```
 
 * **Namespace** opprettes automatisk av Argo CD når mappen dukker opp. Prefikset avtales med SKIP når apps-repoet settes opp ([Komme i gang med Argo CD](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/komme-i-gang-med-argocd)).
 * **`config.json`** styrer synkroniseringen ([dokumentasjon](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/configuring-apps-repositories-with-configjson)). Auto-sync er på som standard i dev, men av i prod.
-* **Plain YAML eller Jsonnet?** SKIP anbefaler vanlig YAML mens du lærer systemet. Argo CD støtter også Jsonnet. `app.yaml` i eksempelet er det samme manifestet som `skipctl manifest render` gir fra `manifestdemo/app.jsonnet`.
+* **Jsonnet og ArgoKit:** SKIP-dokumentasjonen anbefaler å starte med YAML for å holde læringskurven nede. Denne workshopen bruker likevel Jsonnet for å introdusere ArgoKit og gjenbrukbar konfigurasjon. Argo CD støtter Jsonnet, og [SKIPs ArgoKit-guide](https://skip.kartverket.no/docs/applikasjon-utrulling/argokit/getting-started) beskriver hvordan du legger ArgoKit til i apps-repoet. Legg ArgoKit som submodule i roten av apps-repoet. Når du kopierer `manifestdemo/app.jsonnet` til `env/<cluster>/<namespace>/app.jsonnet`, oppdater importen til `../../../argokit/v2/jsonnet/argokit.libsonnet` (stien er relativ til manifestet). `config.json` kan fortsatt bruke `"tool": "directory"`; Argo CD finner Jsonnet-manifestet i namespace-mappen.
 
-### Legg manifestet i apps-repoet
+### Legg Jsonnet-manifestet i apps-repoet
 
-Manifestet må ligge i teamets apps-repo for at Argo CD skal rulle ut appen. Bruk vanlig YAML i denne workshopen:
+Manifestet må ligge i teamets apps-repo for at Argo CD skal rulle ut appen. I denne workshopen lagrer du Jsonnet-kilden der; ikke commit YAML som er rendret av `skipctl`:
 
-1. Rendre manifestet fra kildekode-repoet:
+1. Legg ArgoKit til som submodule i roten av apps-repoet, og kopier `manifestdemo/app.jsonnet` til `env/<cluster>/<namespace>/app.jsonnet`. Oppdater importstien i manifestet til `../../../argokit/v2/jsonnet/argokit.libsonnet`.
+2. Tilpass appnavn, hostnavn, cluster og image i Jsonnet-filen. Image-referansen skal først peke på imaget i ditt eget repo (`ghcr.io/kartverket/<repo-navn>:latest`).
+3. Valider Jsonnet-filen fra roten av apps-repoet:
    ```bash
-   skipctl manifest render --path manifestdemo/app.jsonnet
+   skipctl manifest validate --path env/<cluster>/<namespace>/app.jsonnet
    ```
-2. I apps-repoet oppretter du `env/<cluster>/<namespace>/app.yaml`, med cluster og namespace som teamet har avtalt med SKIP. Legg det rendrede `Application`-manifestet der. Pass på at `spec.image` peker på imaget i ditt eget repo (`ghcr.io/kartverket/<repo-navn>:latest`).
-3. Commit og push manifestet til apps-repoet etter teamets vanlige review-prosess. Bekreft at namespace- og appnavn samsvarer med avtalen og ingress-hostnavnet.
+   Bruk eventuelt `skipctl manifest render --path env/<cluster>/<namespace>/app.jsonnet` for å inspisere YAML-resultatet, men legg Jsonnet-filen i apps-repoet.
+4. Commit og push Jsonnet-filen til apps-repoet etter teamets vanlige review-prosess. Bekreft at namespace- og appnavn samsvarer med avtalen og ingress-hostnavnet.
 
 ### Automatisk deploy fra CI (`deploy`-jobben)
 
-Etter bygg og push endrer `deploy`-jobben i [`workflow.yaml`](./.github/workflows/workflow.yaml) `spec.image` i apps-repoet til `ghcr.io/<repo>:sha-<commit>`, committer og pusher. Argo CD ser endringen og synkroniserer, og Skiperator oppdaterer Deployment. Autentiseringen bruker [Octo STS](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/tilgang-til-repoer-med-tokens-fra-github-actions) i stedet for langlevde PAT-er. Slik tar du den i bruk:
+Etter bygg og push endrer `deploy`-jobben i [`workflow.yaml`](./.github/workflows/workflow.yaml) `local image`-deklarasjonen i Jsonnet-filen i apps-repoet til `ghcr.io/<repo>:sha-<commit>`, committer og pusher. Argo CD ser endringen og synkroniserer, og Skiperator oppdaterer Deployment. Autentiseringen bruker [Octo STS](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/tilgang-til-repoer-med-tokens-fra-github-actions) i stedet for langlevde PAT-er. Slik tar du den i bruk:
 
 1. Legg `.github/chainguard/<repo-navn>.sts.yaml` i **apps-repoet** (se [eksempelet](./apps-repo-eksempel/.github/chainguard/skip-demo.sts.yaml)) og fyll inn org- og repo-ID.
-2. Sett repository-variablene `APPS_REPO` (f.eks. `kartverket/skip-demo-apps`) og `APPS_MANIFEST_PATH` (f.eks. `env/atkv3-dev/skip-demo-main/app.yaml`) under *Settings → Secrets and variables → Actions → Variables*.
+2. Sett repository-variablene `APPS_REPO` (f.eks. `kartverket/skip-demo-apps`) og `APPS_MANIFEST_PATH` (f.eks. `env/atkv3-dev/skip-demo-main/app.jsonnet`) under *Settings → Secrets and variables → Actions → Variables*.
 3. Push til `main`. Uten variablene hoppes jobben over.
 
 > **Rollback:** Argo CD har innebygd rollback (*History and rollback*), men imaget må fortsatt finnes i GHCR. Se [Hvordan bruke Argo CD](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hvordan-bruke-argocd). Feilsøking: [Troubleshooting på SKIP](https://skip.kartverket.no/docs/kom-i-gang/troubleshoot/troubleshooting-on-skip).
@@ -390,7 +393,7 @@ Når du er ferdig med hovedløypa, skal følgende stemme:
 - [ ] `Dockerfile` er multi-stage, ender i `scratch` (eller tilsvarende), har `USER 150:150` og `EXPOSE`.
 - [ ] CI kjører tester, bygger og pusher til `ghcr.io/kartverket/<repo>` ved push til `main`.
 - [ ] `skipctl manifest validate` er grønn for manifestet, og `resources`, probes, `routingProvider: Standard` og ingress er satt.
-- [ ] Manifestet ligger i apps-repoet under `env/<cluster>/<namespace>/`, og Argo CD viser appen som *Synced* og *Healthy*.
+- [ ] Jsonnet-manifestet ligger i apps-repoet under `env/<cluster>/<namespace>/`, og Argo CD viser appen som *Synced* og *Healthy*.
 - [ ] Appen svarer på ingress-hostnavnet over HTTPS.
 
 ---

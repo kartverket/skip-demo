@@ -110,7 +110,7 @@ jobs:
   #
   # Jobben hoppes over til du har satt repository-variablene (Settings -> Secrets and variables -> Actions -> Variables):
   #   APPS_REPO           f.eks. kartverket/skip-demo-apps
-  #   APPS_MANIFEST_PATH  f.eks. env/atkv3-dev/skip-demo-main/app.yaml
+  #   APPS_MANIFEST_PATH  f.eks. env/atkv3-dev/skip-demo-main/app.jsonnet
   # og lagt inn tillit i apps-repoet (se apps-repo-eksempel/.github/chainguard/skip-demo.sts.yaml).
   deploy:
     name: Deploy to apps-repo
@@ -139,7 +139,23 @@ jobs:
         env:
           MANIFEST: ${{ vars.APPS_MANIFEST_PATH }}
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
-        run: yq -i '.spec.image = strenv(IMAGE)' "$MANIFEST"
+        run: |
+          python3 - "$MANIFEST" "$IMAGE" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          manifest = pathlib.Path(sys.argv[1])
+          image = sys.argv[2]
+          content, replacements = re.subn(
+              r"(?m)^local image = '[^']+';$",
+              f"local image = '{image}';",
+              manifest.read_text(),
+          )
+          if replacements != 1:
+              raise SystemExit(f"Expected one local image declaration in {manifest}, found {replacements}")
+          manifest.write_text(content)
+          PY
 
       - name: Commit and push
         run: |
