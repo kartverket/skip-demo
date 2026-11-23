@@ -8,15 +8,14 @@ flowchart LR
         dev["Utvikler endrer app-kode eller Dockerfile"]
         sourceRepo["GitHub-repo med app/ og Dockerfile"]
         pr["Pull Request"]
-        prChecks["GitHub Actions<br/>go vet, tester og bygg<br/>(publiserer ikke)"]
+        prBuild["GitHub Actions<br/>bygger image<br/>(publiserer ikke)"]
         main["Merge eller push til main"]
-        mainChecks["GitHub Actions<br/>go vet, tester, bygg og publiser"]
+        mainBuild["GitHub Actions<br/>bygger og publiserer image"]
         build["Container-image<br/>tagget med commit-SHA"]
         pharos["Pharos skanner imaget"]
-        deploy["deploy-jobb<br/>oppdaterer image-referansen"]
         dev --> sourceRepo
-        sourceRepo --> pr --> prChecks
-        sourceRepo --> main --> mainChecks --> build
+        sourceRepo --> pr --> prBuild
+        sourceRepo --> main --> mainBuild --> build
         build --> pharos
     end
 
@@ -37,18 +36,17 @@ flowchart LR
     end
 
     build -->|"publiserer image"| registry
-    build --> deploy
-    deploy -->|"oppdaterer Jsonnet-filen"| commit
+    registry -->|"manuell oppdatering av image-tag"| commit
     argocd -->|"synkroniserer manifest"| skiperator
     workload -->|"henter image"| registry
 ```
 
 ## Slik leser du flyten
 
-1. På en Pull Request kjører GitHub Actions `go vet`, tester og bygger imaget som kontroll, men publiserer det ikke.
-2. Når endringen merges til `main`, kjører workflowen test og bygg på nytt. Bygget image publiseres til GHCR med commit-SHA som tagg; `latest` oppdateres også.
-3. Pharos skanner imaget. Deploy-jobben bruker Octo STS til å oppdatere image-taggen i `app.jsonnet` i teamets apps-repo, og committer endringen der.
+1. På en Pull Request bygger GitHub Actions imaget som kontroll, men publiserer det ikke.
+2. Når endringen merges til `main`, bygger og publiserer workflowen imaget til GHCR med commit-SHA og `latest`-tagg. Pharos skanner imaget.
+3. I hovedløypa oppdaterer du image-taggen manuelt i apps-repoets `app.jsonnet` og pusher endringen. Automatisk image-oppdatering fra GitHub Actions er en ekstraoppgave.
 4. Argo CD oppdager endringen i apps-repoet og synkroniserer Jsonnet-manifestet. ArgoKit gjør det om til en Skiperator `Application`.
 5. Skiperator oppretter eller oppdaterer ressursene i clusteret. Workloaden henter det publiserte imaget fra GHCR.
 
-Før automatisert deploy er aktivert, må `app.jsonnet` og ArgoKit være lagt inn i apps-repoet, og kode-repoet må ha `APPS_REPO`, `APPS_MANIFEST_PATH` og Octo STS-tillit konfigurert. Se [instruksjonene for apps-repoet i README](README.md#apps-repoet-slik-deployes-det-til-skip).
+For automatisk image-oppdatering må `app.jsonnet` og ArgoKit være lagt inn i apps-repoet, og kode-repoet må ha `APPS_REPO`, `APPS_MANIFEST_PATH` og Octo STS-tillit konfigurert. Se [ekstraoppgaven i README](README.md#oppgave-b-automatiser-image-oppdateringen-i-apps-repoet).

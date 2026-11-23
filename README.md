@@ -25,7 +25,7 @@ Følg stegene i rekkefølge: test demoen lokalt, opprett kildekode-repoet, klarg
 3. [Klargjør apps-repoet](#3-klargjør-apps-repoet)
 4. [Publiser og rull ut](#4-publiser-og-rull-ut)
 
-`app/` inneholder demo-appens kildekode, `Dockerfile` pakker den som et container-image, GitHub Actions under `.github/workflows/` tester og publiserer imaget til GHCR, og et `Application`-manifest i teamets apps-repo beskriver hvordan Skiperator skal kjøre appen. Argo CD synkroniserer manifestet til clusteret.
+`app/` inneholder demo-appens kildekode, `Dockerfile` pakker den som et container-image, og GitHub Actions bygger og publiserer imaget til GHCR. Et `Application`-manifest i teamets apps-repo beskriver hvordan Skiperator skal kjøre appen. Argo CD synkroniserer manifestet til clusteret.
 
 ---
 
@@ -240,7 +240,7 @@ Kildekode-repoet bygger imaget, mens teamets [apps-repo](https://skip.kartverket
 ```text
 apps-repo-eksempel/
 ├── .github/chainguard/
-│   └── skip-demo.sts.yaml            # Octo STS-tillit: lar CI i skip-demo skrive til apps-repoet
+│   └── skip-demo.sts.yaml            # Valgfritt: Octo STS-tillit for CI-deploy (ekstraoppgave)
 ├── env/
 │   └── atkv3-dev/                    # Cluster: atkv3-dev, atkv3-prod, atgcp1-dev eller atgcp1-prod
 │       └── skip-demo-main/           # Namespace. Må starte med teamets prefiks (f.eks. appnavnet)
@@ -275,13 +275,7 @@ Gjør dette i teamets apps-repo. ArgoKit-submodulen legges til én gang per apps
    Bruk eventuelt `skipctl manifest render --path env/<cluster>/<namespace>/app.jsonnet` for å inspisere resultatet. Det er Jsonnet-filen som skal sjekkes inn.
 5. Commit og push manifestet til apps-repoet etter teamets vanlige review-prosess. Argo CD synkroniserer manifestet; om auto-sync er av, må noen velge **Sync** i Argo CD.
 
-### Valgfritt: automatiser image-oppdateringen fra GitHub Actions
-
-Du kan først gjøre image-oppdateringen manuelt i apps-repoet (se steg 4). Vil du automatisere den, konfigurerer du Octo STS før du publiserer:
-
-1. Legg `.github/chainguard/<repo-navn>.sts.yaml` i apps-repoet (se [eksempelet](./apps-repo-eksempel/.github/chainguard/skip-demo.sts.yaml)), og sett tillit til kildekode-repoet. Se [Octo STS-veiledningen](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/tilgang-til-repoer-med-tokens-fra-github-actions).
-2. I kildekode-repoet, sett Actions-variablene `APPS_REPO` (f.eks. `kartverket/skip-demo-apps`) og `APPS_MANIFEST_PATH` (f.eks. `env/atkv3-dev/skip-demo-main/app.jsonnet`) under *Settings → Secrets and variables → Actions → Variables*.
-3. Når en push til `main` bygger og publiserer imaget, oppdaterer `deploy`-jobben image-taggen til `sha-<commit>` i apps-repoet. GitHub Actions bruker Octo STS for kortlevd tilgang. Uten variablene hoppes deploy-jobben over.
+Image-oppdatering fra GitHub Actions er en ekstraoppgave. I hovedløypa oppdaterer du image-referansen manuelt etter at imaget er publisert (steg 4). Se ekstraoppgaven [Automatiser image-oppdateringen](#oppgave-b-automatiser-image-oppdateringen-i-apps-repoet) hvis du vil sette opp Octo STS og CI-deploy.
 
 > **Rollback:** Argo CD har innebygd rollback (*History and rollback*), men imaget må fortsatt finnes i GHCR. Se [Hvordan bruke Argo CD](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hvordan-bruke-argocd). Feilsøking: [Troubleshooting på SKIP](https://skip.kartverket.no/docs/kom-i-gang/troubleshoot/troubleshooting-on-skip).
 
@@ -300,9 +294,9 @@ Når kildekode-repoet og apps-repoet er klargjort, publiser demoen:
    git push -u origin oppsett
    ```
 
-2. Åpne en Pull Request og sjekk workflowene under **Actions**. Bygg og tester kjøres, men imaget publiseres ikke før endringen merges til `main`.
-3. Når PR-en er godkjent, merge den til `main`. GitHub Actions bygger og publiserer imaget til GHCR; Pharos skanner det. Hvis Octo STS er konfigurert, oppdateres apps-repoet automatisk.
-4. Hvis automatisk deploy ikke er konfigurert, endre image-referansen i apps-repoets `app.jsonnet` til `ghcr.io/kartverket/<repo-navn>:sha-<full-commit-SHA>`, og commit/push endringen.
+2. Åpne en Pull Request og sjekk workflowen under **Actions**. Den bygger imaget som kontroll, men publiserer det ikke før endringen merges til `main`.
+3. Når PR-en er godkjent, merge den til `main`. GitHub Actions bygger og publiserer imaget til GHCR; Pharos skanner det.
+4. Finn commit-SHA-en for bygget, og endre `local image`-verdien i apps-repoets `app.jsonnet` til `ghcr.io/kartverket/<repo-navn>:sha-<full-commit-SHA>`. Commit og push endringen etter teamets review-prosess.
 5. Sjekk at imaget finnes under **Packages**, at Argo CD viser applikasjonen som *Synced* og *Healthy*, og at appen svarer på HTTPS-adressen. Hvis auto-sync er av, synkroniser i Argo CD.
 6. Gå gjennom [sjekklisten](#sjekkliste-dette-skal-du-ha-laget).
 
@@ -316,7 +310,7 @@ Når du er ferdig med hovedløypa, skal følgende stemme:
 - [ ] Demoappen i `app/` svarer 200 på `/healthz` og `/readyz`, lytter på `PORT` (standard `8080`) og stopper pent på SIGTERM.
 - [ ] `docker build` fungerer, og containeren kjører med `--read-only --tmpfs /tmp --user 150:150 --cap-drop ALL`.
 - [ ] `Dockerfile` er multi-stage, bruker et egnet runtime-image, har `USER 150:150` og `EXPOSE`.
-- [ ] CI kjører tester, bygger og pusher til `ghcr.io/kartverket/<repo>` ved push til `main`.
+- [ ] GitHub Actions bygger og pusher til `ghcr.io/kartverket/<repo>` ved push til `main`.
 - [ ] `skipctl manifest validate` er grønn for manifestet, og `resources`, probes, `routingProvider: Standard` og ingress er satt.
 - [ ] Jsonnet-manifestet ligger i apps-repoet under `env/<cluster>/<namespace>/`, og Argo CD viser appen som *Synced* og *Healthy*.
 - [ ] Appen svarer på ingress-hostnavnet over HTTPS.
@@ -336,7 +330,7 @@ mitt-app-repo/
 ├── .dockerignore
 ├── .github/
 │   ├── CODEOWNERS
-│   └── workflows/                # Tester, bygger, publiserer, skanner og deployer
+│   └── workflows/                # Bygger, publiserer og skanner
 ├── manifestdemo/
 │   └── app.jsonnet               # Lokalt eksempel for validering
 └── argokit/                      # Git-submodule for Jsonnet og skipctl
@@ -366,7 +360,7 @@ Sett `requests` og `limits` for CPU og minne på alle containere. Demo-manifeste
 
 ## Ekstraoppgave: Bytt ut demoappen med din egen
 
-Når du har fått demoappen til å kjøre på SKIP, kan du erstatte innholdet i `app/` med en egen applikasjon. Du kan bruke et annet språk eller rammeverk, men appen må kunne pakkes i et Linux-containerimage og oppfylle plattformens krav. Oppdater og test Dockerfile, CI-testene og manifestet ved behov. Appen må fortsatt lytte på porten manifestet angir, og implementere helsesjekkene som manifestet bruker. Se [kravene til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements) og [anbefalingene for containeren](#app-og-container).
+Når du har fått demoappen til å kjøre på SKIP, kan du erstatte innholdet i `app/` med en egen applikasjon. Du kan bruke et annet språk eller rammeverk, men appen må kunne pakkes i et Linux-containerimage og oppfylle plattformens krav. Oppdater og test Dockerfile, CI-workflowene og manifestet ved behov. Appen må fortsatt lytte på porten manifestet angir, og implementere helsesjekkene som manifestet bruker. Se [kravene til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements) og [anbefalingene for containeren](#app-og-container).
 
 ---
 
@@ -376,8 +370,7 @@ Når du har fått demoappen til å kjøre på SKIP, kan du erstatte innholdet i 
 
 | Fil | Hva den gjør | Dokumentasjon |
 | :--- | :--- | :--- |
-| [`workflow.yaml`](./.github/workflows/workflow.yaml) | `test`-jobb (`go vet`, `go test`), `build`-jobb (bygger og pusher til GHCR), `pharos`-jobb (skanner imaget etter push til `main`) og `deploy`-jobb (se under) | [Pharos](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/pharos) |
-| (`deploy`-jobben i `workflow.yaml`) | Oppdaterer image-taggen i apps-repoet via Octo STS | [Apps-repo](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo#deploye-automatisk-ved-push) |
+| [`workflow.yaml`](./.github/workflows/workflow.yaml) | Bygger og pusher image til GHCR og kjører Pharos etter push til `main` | [GitHub Actions](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions) og [Pharos](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/pharos) |
 | [`validate-manifest.yaml`](./.github/workflows/validate-manifest.yaml) | Kjører `skipctl manifest validate` når manifestet endres i en PR | [skipctl manifester](https://skip.kartverket.no/docs/applikasjon-utrulling/skipctl/manifests) |
 | [`dependency-review.yaml`](./.github/workflows/dependency-review.yaml) | Kommenterer sårbarheter og lisensproblemer i endrede avhengigheter på PR-er | [Dependency review](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/dependency-review) |
 | [`dependabot.yml`](./.github/dependabot.yml) | Daglige PR-er for `argokit`-submodulen, GitHub Actions, Docker-imaget og Go-modulen | [Dependabot](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/github/dependabot) |
@@ -395,7 +388,15 @@ Pharos skanner i dag bare imaget som akkurat er bygget. Nye sårbarheter oppdage
 * [ ] Legg til `workflow_dispatch:` slik at du kan kjøre den manuelt for å teste.
 * [ ] Sjekk resultatene under **Security → Code scanning**.
 
-### Oppgave B: Semver-tagger ved release
+### Oppgave B: Automatiser image-oppdateringen i apps-repoet
+
+I hovedløypa oppdaterer du image-referansen manuelt. Utvid workflowen slik at et push til `main` også oppdaterer apps-repoet etter at imaget er publisert. SKIP beskriver mønsteret i [Deploye automatisk ved push](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo#deploye-automatisk-ved-push), og tilgang med kortlevd token i [Octo STS-veiledningen](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/tilgang-til-repoer-med-tokens-fra-github-actions).
+
+* [ ] Legg Octo STS-tillit i apps-repoet, og konfigurer `APPS_REPO` og `APPS_MANIFEST_PATH` som Actions-variabler i kildekode-repoet.
+* [ ] Legg til en deploy-jobb som henter kortlevd token, sjekker ut apps-repoet, endrer `local image`-verdien til imaget med commit-SHA, og committer/pusher endringen.
+* [ ] Bekreft at Argo CD synkroniserer den nye image-referansen.
+
+### Oppgave C: Semver-tagger ved release
 
 I dag får imaget kun taggene `sha-<commit>` og `latest`. Legg til støtte for versjonerte releaser.
 
@@ -404,11 +405,11 @@ I dag får imaget kun taggene `sha-<commit>` og `latest`. Legg til støtte for v
 * [ ] Lag en tag (`git tag v0.1.0 && git push --tags`) og sjekk at riktige tagger dukker opp under **Packages**.
 * [ ] Tenk gjennom: hva bør `pharos`-jobben (som i dag kun kjører på `main`) gjøre ved tag-bygg?
 
-### Oppgave C (utfordring): Eget namespace per branch, med opprydding
+### Oppgave D (utfordring): Eget namespace per branch, med opprydding
 
-Apps-repoet støtter ett namespace per branch eller PR (`<prefiks>-<branch>`), noe som lar deg teste endringer isolert før merge. Utvid `deploy`-jobben slik at den også kjører for andre branches enn `main`, og kopierer manifestet til `env/<cluster>/<prefiks>-<branch>/`. Lag deretter en `on: delete`-workflow som fjerner mappen igjen når branchen slettes, slik at du ikke bruker opp clusterkapasitet. Se eksemplene nederst i [Hva er et apps-repo](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo#deploye-automatisk-ved-push). Obs: eksemplet i dokumentasjonen bruker `kubectl patch --local ... -o yaml`, som kun skriver til stdout og ikke endrer filen. Bruk `yq -i` eller omdiriger output. Hostnavnet i manifestet må også være unikt per branch.
+Etter at [Oppgave B](#oppgave-b-automatiser-image-oppdateringen-i-apps-repoet) er løst, kan du utvide deploy-jobben slik at den også kjører for andre branches enn `main` og kopierer manifestet til `env/<cluster>/<prefiks>-<branch>/`. Lag deretter en `on: delete`-workflow som fjerner mappen igjen når branchen slettes, slik at du ikke bruker opp clusterkapasitet. Se eksemplene nederst i [Hva er et apps-repo](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo#deploye-automatisk-ved-push). Obs: eksemplet i dokumentasjonen bruker `kubectl patch --local ... -o yaml`, som kun skriver til stdout og ikke endrer filen. Bruk `yq -i` eller omdiriger output. Hostnavnet i manifestet må også være unikt per branch.
 
-### Oppgave D: Gjør `skipctl` tilgjengelig som eget steg
+### Oppgave E: Gjør `skipctl` tilgjengelig som eget steg
 
 `validate-manifest.yaml` laster ned `skipctl` med en fast versjon. Utvid den slik at den også:
 
@@ -421,8 +422,8 @@ Apps-repoet støtter ett namespace per branch eller PR (`<prefiks>-<branch>`), n
 
 * [`app/`](./app): Kildekoden til applikasjonen som skal kjøres på SKIP.
 * [`Dockerfile`](./Dockerfile): Multi-stage oppskrift for å bygge applikasjonen i `app/` og pakke den til et minimalt, sikkert container-image.
-* [`.github/workflows/`](./.github/workflows): GitHub Actions-workflows for test, bygg og push til GHCR ([`workflow.yaml`](./.github/workflows/workflow.yaml)), Pharos-skanning, manifestvalidering og dependency review.
-* [`apps-repo-eksempel/`](./apps-repo-eksempel): Eksempel på hvordan det tilhørende apps-repoet er strukturert (`env/<cluster>/<namespace>/`, `config.json` og Octo STS-tillit).
+* [`.github/workflows/`](./.github/workflows): GitHub Actions-workflows for bygg og push til GHCR ([`workflow.yaml`](./.github/workflows/workflow.yaml)), Pharos-skanning, manifestvalidering og dependency review.
+* [`apps-repo-eksempel/`](./apps-repo-eksempel): Eksempel på apps-repo-strukturen (`env/<cluster>/<namespace>/`, `config.json` og valgfri Octo STS-tillit).
 * [`.github/dependabot.yml`](./.github/dependabot.yml): Automatiske oppdateringer av `argokit`, GitHub Actions, Docker-imaget og Go-avhengigheter.
 * [`.github/CODEOWNERS`](./.github/CODEOWNERS): Hvilket team som eier repoet. Bytt ut teamet når du bruker repoet som mal.
 * [`manifestdemo/app.jsonnet`](./manifestdemo/app.jsonnet): Eksempel på en Skiperator `Application`-ressurs skrevet med **ArgoKit v2**. *Merk: I en reell utrulling skal denne filen ligge i teamets apps-repo slik at den plukkes opp av Argo CD.*
