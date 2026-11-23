@@ -285,7 +285,7 @@ Image-oppdatering fra GitHub Actions er en ekstraoppgave. I hovedløypa oppdater
 
 Når kildekode-repoet og apps-repoet er klargjort, publiser demoen:
 
-1. Opprett en branch i kildekode-repoet, commit oppsettet og push branchen. Repoer i organisasjonen krever signerte commits (se [`Jukselappen.md`](Jukselappen.md#2-git-versjonskontroll)).
+1. Opprett en branch i kildekode-repoet, commit oppsettet og push branchen.(se [`Jukselappen.md`](Jukselappen.md#2-git-versjonskontroll)).
 
    ```bash
    git switch -c oppsett
