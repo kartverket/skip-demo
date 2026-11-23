@@ -2,11 +2,11 @@
 
 > Dette er et demo- og mal-repo som viser hvordan du pakker en applikasjon i en container med **Docker** og **GitHub Actions**, og ruller den ut på [**SKIP-plattformen**](https://skip.kartverket.no) ved hjelp av **ArgoKit**, **skipctl**, **Argo CD** og **Skiperator**.
 >
-> **Språk- og rammeverksagnostisk:** Oppsettet i dette repoet er uavhengig av programmeringsspråk og rammeverk. Så lenge applikasjonen din kan pakkes i en container, kan du bruke denne repo-strukturen til å bygge og kjøre alt fra mikrotjenester, API-er og bakgrunnsjobber til frontend-applikasjoner på SKIP.
+> Demo-appen i dette repoet er skrevet i Go. I hovedløypa bruker du den som den er, slik at du kan konsentrere deg om bygging, publisering og utrulling. Senere kan du bytte den ut med en applikasjon i et annet språk eller rammeverk, så lenge den kan pakkes i et Linux-containerimage.
 
 ## Mål for workshopen
 
-**Målet er at du oppretter ditt eget repo i GitHub-organisasjonen [`kartverket`](https://github.com/kartverket)**, med en fungerende app som bygges, pakkes i en container og rulles ut på SKIP, på samme måte som dette repoet gjør det. Dette repoet er fasit og mal: bruk det som utgangspunkt, men bygg det opp i ditt eget repo.
+**Målet er at du oppretter ditt eget repo i GitHub-organisasjonen [`kartverket`](https://github.com/kartverket) og ruller ut demo-appen til SKIP derfra.** Du bruker den ferdige appen og containeroppsettet i dette repoet, og lærer hvordan koden bygges, imaget publiseres og appen deployes. Å lage eller ta med en egen applikasjon er en ekstraoppgave.
 
 Følg [Opprette nytt repo på GitHub](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/github/opprette-nytt-repo-p%C3%A5-github) når du oppretter repoet:
 
@@ -18,16 +18,16 @@ Følg [Opprette nytt repo på GitHub](https://skip.kartverket.no/docs/kom-i-gang
 
 ## Workshopløype
 
-Først blir du kjent med demoen, så setter du opp og tilpasser ditt eget repo. Til slutt publiserer du imaget og ruller ut appen via teamets apps-repo.
+Først kjører du demoen lokalt, så kopierer du den til ditt eget repo og ruller den ut på SKIP via teamets apps-repo. Du trenger ikke skrive om appen eller Dockerfile i hovedløypa.
 
 1. Sjekk [forutsetningene](#forutsetninger-på-skip) og installer [nødvendige verktøy](#nødvendige-verktøy-windows-macos-og-linux).
 2. Kjør demoen lokalt i [Kom i gang lokalt](#kom-i-gang-lokalt) og valider eksempelmanifestet med `skipctl`.
 3. Opprett repoet ditt etter [Klargjør workshop-repoet](#klargjør-workshop-repoet).
-4. Tilpass app, eller lag din egen (her kan du bruke AI), Dockerfile og manifest under [Lag din egen app og pakk den i en container](#lag-din-egen-app-og-pakk-den-i-en-container).
+4. Tilpass repo- og appnavn, hostnavn og manifest for miljøet ditt. Behold demo-appen og Dockerfile uendret i hovedløypa.
 5. Sett opp utrulling via [apps-repoet](#apps-repoet-slik-deployes-det-til-skip), og følg deretter stegene for [publisering og deploy](#publiser-og-rull-ut).
-6. Bruk [sjekklisten](#sjekkliste-dette-skal-du-ha-laget) for å bekrefte at du er ferdig. Har du tid til over? Se på ekstraoppgavene.
+6. Bruk [sjekklisten](#sjekkliste-dette-skal-du-ha-laget) for å bekrefte at du er ferdig. Å lage en egen app og bygge ut GitHub Actions er valgfrie ekstraoppgaver.
 
-`app/` inneholder kildekoden til appen, `Dockerfile` pakker den som et container-image, GitHub Actions under `.github\workflows` tester og publiserer imaget til GHCR, og et `Application`-manifest i teamets apps-repo beskriver hvordan Skiperator skal kjøre appen. Argo CD synkroniserer manifestet til clusteret.
+`app/` inneholder demo-appens kildekode, `Dockerfile` pakker den som et container-image, GitHub Actions under `.github/workflows/` tester og publiserer imaget til GHCR, og et `Application`-manifest i teamets apps-repo beskriver hvordan Skiperator skal kjøre appen. Argo CD synkroniserer manifestet til clusteret.
 
 ---
 
@@ -37,7 +37,7 @@ Først blir du kjent med demoen, så setter du opp og tilpasser ditt eget repo. 
 * Rettigheter i Kartverkets GitHub-organisasjon.
 * Tilgang til et [apps-repo](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo) satt opp mot Argo CD.
 * Tilkoblet Kartverkets intranett/VPN for tilgang til [Argo CD](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd).
-* En applikasjon som du ønsker å pakke i en container og kjøre på SKIP. Har du ikke noe, så står du fritt til å be en AI om å generere en enkel web-applikasjon i et språk du ønsker (f.eks. Go, Python, Node.js, Java, Rust, C#). Du kan også bruke demo-applikasjonen i dette repoet som utgangspunkt.
+* Du trenger ikke ha en egen applikasjon klar. Workshopens hovedløype bruker demo-appen som følger med dette repoet.
 
 ## Kompetansekrav
 
@@ -140,7 +140,7 @@ podman machine start
 
 ## Kom i gang lokalt
 
-Først utforsker du demoen: klon den, kjør den lokalt og se at manifestet er gyldig. Deretter [oppretter du ditt eget repo](#opprett-ditt-eget-repo-i-kartverket) og bygger det samme der.
+Først utforsker du demoen: klon den, kjør den lokalt og se at manifestet er gyldig. Deretter [oppretter du ditt eget repo](#klargjør-workshop-repoet) og publiserer den samme appen derfra.
 
 > **Før du starter:** Git må være satt opp mot GitHub med Kartverket-kontoen din. Følg [Autentisering til GitHub i terminalen](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/github/autentisering-til-github-i-terminalen) (SSH-nøkkel som er godkjent med *Configure SSO*), sett `user.name` og `user.email`, og sett opp signerte commits (se [`Jukselappen.md`](Jukselappen.md#2-git-versjonskontroll)). Å klone dette demo-repoet fungerer uten innlogging, men du trenger det for å pushe til ditt eget repo.
 
@@ -161,7 +161,7 @@ Sjekk at `argokit/` ikke er tom (`ls argokit`). Hvis den er tom feiler `skipctl`
 
 ### 2. Bygg og kjør containeren lokalt
 
-Med Docker bygger og kjører du applikasjonen på akkurat samme måte uansett hvilket språk eller rammeverk som ligger i `app/`. Kjør den med samme sikkerhetskontekst som Skiperator bruker på SKIP (UID/GID `150`, ingen capabilities, skrivebeskyttet rot-filsystem der kun `/tmp` er skrivbart), slik at du oppdager problemer før du deployer:
+Bygg og kjør Go-demoappen lokalt med samme sikkerhetskontekst som Skiperator bruker på SKIP (UID/GID `150`, ingen capabilities, skrivebeskyttet rot-filsystem der kun `/tmp` er skrivbart), slik at du oppdager problemer før du deployer:
 
 ```bash
 docker build -t skip-demo:local .
@@ -201,7 +201,7 @@ Se hvordan resultatet av `render` henger sammen med `manifestdemo/app.jsonnet`: 
 
 Nå som du har sett at demoen virker, lager du ditt eget repo i [`kartverket`](https://github.com/kartverket)-organisasjonen. Bruk reglene fra [Mål for workshopen](#mål-for-workshopen).
 
-**1. Opprett repoet** i nettleseren (*+ → New repository*, Owner `kartverket`, Internal/eksternal, ingen lisens), eller med GitHub CLI:
+**1. Opprett repoet** i nettleseren (*+ → New repository*, Owner `kartverket`, ønsket synlighet, ingen lisens), eller med GitHub CLI:
 
 ```bash
 gh repo create kartverket/<mitt-app-navn> --internal --clone
@@ -210,7 +210,7 @@ cd <mitt-app-navn>
 
 Brukte du nettleseren, klon repoet (se [autentisering](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/github/autentisering-til-github-i-terminalen)) og gå inn i mappen.
 
-**2. Kopier malen inn i repoet.** Fra mappen til ditt nye repo, med demoen klonet ved siden av (`../skip-demo`):
+**2. Kopier demoappen og utrullingsoppsettet inn i repoet.** I hovedløypa lar du `app/` og `Dockerfile` være uendret. Fra mappen til ditt nye repo, med demoen klonet ved siden av (`../skip-demo`):
 
 ```bash
 cp -r ../skip-demo/app ../skip-demo/Dockerfile ../skip-demo/.dockerignore \
@@ -225,19 +225,19 @@ Kopier *ikke* `.git` eller `argokit/` fra demoen. `argokit` legger du til som su
 git submodule add https://github.com/kartverket/argokit.git
 ```
 
-**4. Tilpass navn.** Bytt ut `skip-demo` med ditt appnavn i `manifestdemo/app.jsonnet` (appnavn, image og hostnavn) og sett ditt eget team i `.github/CODEOWNERS`. Finn alle steder med:
+**4. Tilpass repo- og teamdetaljer.** I `manifestdemo/app.jsonnet` endrer du appnavn og hostnavn slik at de passer til appen og clusteret ditt. Image-referansen skal peke på imaget i ditt nye repo (`ghcr.io/kartverket/<repo-navn>:latest`); GitHub Actions bruker repo-navnet automatisk når det bygger og publiserer imaget. Sett også ditt eget team i `.github/CODEOWNERS`. Bruk søket under for å finne andre forekomster av `skip-demo` du eventuelt må oppdatere:
 
 ```bash
 grep -rn "skip-demo" . --exclude-dir=.git --exclude-dir=argokit --exclude=README.md
 ```
 
-Nå er repoet klargjort, men ikke push endringene ennå. Tilpass først applikasjonen, Dockerfile og manifestet i stegene under. Når de fungerer lokalt, setter du opp apps-repoet og publiserer appen til SKIP.
+Repoet er nå klart for demoappen. Fortsett med å tilpasse og validere manifestet, sett opp apps-repoet og publiser appen til SKIP. Du trenger ikke endre applikasjonskoden eller Dockerfile i hovedløypa.
 
 ---
 
-## Lag din egen app og pakk den i en container!
+## Demoappen, containeren og manifestet
 
-Dette repoet er bygget opp som en generell mal du kan kopiere eller ta utgangspunkt i når du vil lage din egen applikasjon og rulle den ut på SKIP. SKIP krever ikke et bestemt programmeringsspråk eller rammeverk, da kontrakten mellom applikasjonen din og plattformen er selve **containeren**.
+I hovedløypa bruker du Go-demoappen og Dockerfile slik de er. Denne delen beskriver hvordan de henger sammen og hvilke krav du må ta hensyn til hvis du senere bytter ut appen eller tilpasser containeren.
 
 ### Repo-strukturen
 
@@ -258,23 +258,20 @@ mitt-app-repo/
 │       └── dependency-review.yaml    # Sårbarhets- og lisenskontroll av avhengigheter på Pull Requests
 ├── manifestdemo/
 │   └── app.jsonnet               # ArgoKit-manifest som forteller Skiperator hvordan containeren skal kjøres
-├── apps-repo-eksempel/           # Slik ser det tilhørende apps-repoet ut (mappestruktur, config.json, Octo STS-tillit)
 └── argokit/                      # Git-submodule med ArgoKit-biblioteket for lokal validering med skipctl
 ```
 
+`apps-repo-eksempel/` i dette demo-repoet viser strukturen til et separat apps-repo; den mappen skal ikke kopieres inn i kildekode-repoet ditt.
+
 > **Tips:** GitHub Actions-workflowen i [`.github/workflows/workflow.yaml`](./.github/workflows/workflow.yaml) bruker `${{ github.repository }}` automatisk. Det betyr at hvis du oppretter et nytt repo med denne strukturen, vil workflowen automatisk bygge `Dockerfile` i rotmappen og publisere imaget til `ghcr.io/kartverket/<ditt-repo-navn>` uten at du trenger å endre workflow-filen!
 
-### Steg 1: Legg inn din egen applikasjon i `app/`
+### Steg 1: Bli kjent med demoappen i `app/`
 
-Erstatt innholdet i [`app/`](./app) med din egen applikasjon, skrevet i det språket og rammeverket som passer oppgaven best. For at applikasjonen skal fungere godt i en container på SKIP, bør den oppfylle tre grunnleggende ting:
+Kildekoden i [`app/`](./app) er en enkel Go-webapp. Den lytter på `PORT` (standard `8080`), serverer en statisk side, svarer på `/healthz` og `/readyz`, og håndterer SIGTERM ved å avslutte pent. Du trenger ikke endre koden for å fullføre hovedløypa.
 
-1. **Lytt på en uprivilegert port (f.eks. `8080`):** Bind deg helst til en port over `1024` (f.eks. `0.0.0.0:8080`), siden containeren ikke kjører som `root`.
-2. **Eksponer helsesjekk-endepunkter (`/healthz` og `/readyz`):** Lag endepunkter som returnerer HTTP `200 OK` når applikasjonen lever (*liveness*) og når den er klar til å ta imot trafikk (*readiness*).
-3. **Konfigurasjon via miljøvariabler:** Les inn innstillinger og eventuelle hemmeligheter fra miljøvariabler, slik at samme container-image kan brukes på tvers av miljøer (lokalt, dev, test og prod).
+### Steg 2: Forstå containeroppsettet (`Dockerfile`)
 
-### Steg 2: Pakk applikasjonen i en container (`Dockerfile`)
-
-[`Dockerfile`](./Dockerfile) i rotmappen definerer hvordan koden i `app/` bygges og pakkes til et kjørbart container-image. SKIPs [krav til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements) er at applikasjonen er containerisert og imaget publiseres til et register clusteret har tilgang til; SKIP anbefaler `scratch` som baseimage når det passer. Workloads følger [retningslinjene for Kubernetes](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/kubernetes/retningslinjer-for-kubernetes) og Pod Security Standards nivå *restricted*. Følgende er anbefalt praksis når du tilpasser Dockerfile:
+[`Dockerfile`](./Dockerfile) i rotmappen bygger koden i `app/` og pakker den i et kjørbart container-image. Du trenger ikke endre den i hovedløypa. SKIPs [krav til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements) er at applikasjonen er containerisert og imaget publiseres til et register clusteret har tilgang til; SKIP anbefaler `scratch` som baseimage når det passer. Workloads følger [retningslinjene for Kubernetes](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/kubernetes/retningslinjer-for-kubernetes) og Pod Security Standards nivå *restricted*. Hvis du senere tilpasser Dockerfile, følg denne anbefalte praksisen:
 
 1. **Bruk gjerne Multi-Stage Build:**
    Skill byggemiljøet fra kjøretidsimaget. Kopier bare det applikasjonen trenger for å kjøre, for eksempel binærfil, statiske filer og CA-sertifikater. Dette reduserer unødvendig innhold i det endelige imaget.
@@ -299,7 +296,7 @@ Oppdater applikasjonsnavn, image-referanse (`ghcr.io/kartverket/<ditt-repo>:...`
 
 ## Fremgangsmåte: Fra kode til kjørende app på SKIP
 
-1. **Utvikler/Applikasjonsdrifter:** Gjør en endring i applikasjonskoden i `app/`, eller endrer konfigurasjon som hostnavn, replikaer, CPU/minne e.l. i apps-repoet.
+1. **Utvikler/Applikasjonsdrifter:** Endrer manifestet eller konfigurasjonen, for eksempel hostnavn, replikaer eller CPU/minne. I denne workshopen beholder du demo-appens kildekode uendret.
 2. **Git Push / Pull Request:** Endringen merges til `main`-branchen.
 3. **GitHub Actions (CI):**
    * Push til `main` trigger automatisk workflowen definert i `.github/workflows/workflow.yaml`.
@@ -337,6 +334,17 @@ apps-repo-eksempel/
 * **`config.json`** styrer synkroniseringen ([dokumentasjon](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/configuring-apps-repositories-with-configjson)). Auto-sync er på som standard i dev, men av i prod.
 * **Plain YAML eller Jsonnet?** SKIP anbefaler vanlig YAML mens du lærer systemet. Argo CD støtter også Jsonnet. `app.yaml` i eksempelet er det samme manifestet som `skipctl manifest render` gir fra `manifestdemo/app.jsonnet`.
 
+### Legg manifestet i apps-repoet
+
+Manifestet må ligge i teamets apps-repo for at Argo CD skal rulle ut appen. Bruk vanlig YAML i denne workshopen:
+
+1. Rendre manifestet fra kildekode-repoet:
+   ```bash
+   skipctl manifest render --path manifestdemo/app.jsonnet
+   ```
+2. I apps-repoet oppretter du `env/<cluster>/<namespace>/app.yaml`, med cluster og namespace som teamet har avtalt med SKIP. Legg det rendrede `Application`-manifestet der. Pass på at `spec.image` peker på imaget i ditt eget repo (`ghcr.io/kartverket/<repo-navn>:latest`).
+3. Commit og push manifestet til apps-repoet etter teamets vanlige review-prosess. Bekreft at namespace- og appnavn samsvarer med avtalen og ingress-hostnavnet.
+
 ### Automatisk deploy fra CI (`deploy`-jobben)
 
 Etter bygg og push endrer `deploy`-jobben i [`workflow.yaml`](./.github/workflows/workflow.yaml) `spec.image` i apps-repoet til `ghcr.io/<repo>:sha-<commit>`, committer og pusher. Argo CD ser endringen og synkroniserer, og Skiperator oppdaterer Deployment. Autentiseringen bruker [Octo STS](https://skip.kartverket.no/docs/applikasjon-utrulling/github-actions/tilgang-til-repoer-med-tokens-fra-github-actions) i stedet for langlevde PAT-er. Slik tar du den i bruk:
@@ -351,7 +359,7 @@ Etter bygg og push endrer `deploy`-jobben i [`workflow.yaml`](./.github/workflow
 
 ## Publiser og rull ut
 
-Når appen, containeren og manifestet er tilpasset, test dem lokalt før du åpner en Pull Request:
+Når repoet er opprettet og manifestet tilpasset, test demoappen og valider manifestet før du åpner en Pull Request:
 
 1. Bygg og kjør containeren etter [Kom i gang lokalt](#kom-i-gang-lokalt), og sjekk at `/healthz` og `/readyz` svarer `200 OK`.
 2. Valider manifestet med `skipctl manifest validate --path manifestdemo/app.jsonnet`.
@@ -360,7 +368,7 @@ Når appen, containeren og manifestet er tilpasset, test dem lokalt før du åpn
    ```bash
    git switch -c oppsett
    git add .
-   git commit -m "Sett opp app, Dockerfile, CI og manifest"
+   git commit -m "Sett opp demoapp for utrulling"
    git push -u origin oppsett
    ```
 
@@ -373,17 +381,23 @@ Når appen, containeren og manifestet er tilpasset, test dem lokalt før du åpn
 
 ## Sjekkliste: dette skal du ha laget
 
-Workshop-oppgaven er å sette opp det samme for din egen app. Når du er ferdig skal følgende stemme:
+Når du er ferdig med hovedløypa, skal følgende stemme:
 
 - [ ] Du har opprettet et eget repo i GitHub-organisasjonen `kartverket` (Internal, uten lisens), med `CODEOWNERS` og tilgang for teamet ditt.
 
-- [ ] `app/` svarer 200 på `/healthz` og `/readyz`, lytter på `PORT` (standard `8080`) og stopper pent på SIGTERM.
+- [ ] Demoappen i `app/` svarer 200 på `/healthz` og `/readyz`, lytter på `PORT` (standard `8080`) og stopper pent på SIGTERM.
 - [ ] `docker build` fungerer, og containeren kjører med `--read-only --tmpfs /tmp --user 150:150 --cap-drop ALL`.
 - [ ] `Dockerfile` er multi-stage, ender i `scratch` (eller tilsvarende), har `USER 150:150` og `EXPOSE`.
 - [ ] CI kjører tester, bygger og pusher til `ghcr.io/kartverket/<repo>` ved push til `main`.
 - [ ] `skipctl manifest validate` er grønn for manifestet, og `resources`, probes, `routingProvider: Standard` og ingress er satt.
 - [ ] Manifestet ligger i apps-repoet under `env/<cluster>/<namespace>/`, og Argo CD viser appen som *Synced* og *Healthy*.
 - [ ] Appen svarer på ingress-hostnavnet over HTTPS.
+
+---
+
+## Ekstraoppgave: Bytt ut demoappen med din egen
+
+Når du har fått demoappen til å kjøre på SKIP, kan du erstatte innholdet i `app/` med en egen applikasjon. Du kan bruke et annet språk eller rammeverk, men appen må kunne pakkes i et Linux-containerimage og oppfylle plattformens krav. Oppdater og test Dockerfile, CI-testene og manifestet ved behov. Appen må fortsatt lytte på porten manifestet angir, og implementere helsesjekkene som manifestet bruker. Se [kravene til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements) og [anbefalingene for containeren](#steg-2-forstå-containeroppsettet-dockerfile).
 
 ---
 
