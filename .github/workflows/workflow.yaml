@@ -120,3 +120,37 @@ jobs:
     permissions:
       contents: read
       id-token: write # Påkrevd for Octo STS
+
+    steps:
+      - name: Get short-lived token for apps-repo
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
+        id: octo-sts
+        with:
+          scope: ${{ vars.APPS_REPO }}
+          identity: ${{ github.event.repository.name }}
+
+      - name: Checkout apps-repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: ${{ vars.APPS_REPO }}
+          token: ${{ steps.octo-sts.outputs.token }}
+
+      - name: Update image in manifest
+        env:
+          MANIFEST: ${{ vars.APPS_MANIFEST_PATH }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+        run: |
+          test "$(grep -c "^local image = '" "$MANIFEST")" -eq 1
+          sed -i "s|^local image = '[^']*';$|local image = '${IMAGE}';|" "$MANIFEST"
+
+      - name: Commit and push
+        run: |
+          if git diff --quiet; then
+            echo "Ingen endringer å deploye"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Deploy ${{ github.repository }}@${{ github.sha }}"
+          git pull --rebase
+          git push

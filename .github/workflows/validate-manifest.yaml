@@ -40,4 +40,5 @@ jobs:
         run: skipctl manifest validate --no-analytics --path manifestdemo/app.jsonnet
 
       - name: Validate apps-repo example
+        if: hashFiles('apps-repo-eksempel/env/**/*.jsonnet') != ''
         run: skipctl manifest validate --no-analytics --path apps-repo-eksempel/env
