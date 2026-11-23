@@ -4,6 +4,20 @@
 >
 > **Språk- og rammeverksagnostisk:** Oppsettet i dette repoet er uavhengig av programmeringsspråk og rammeverk. Så lenge applikasjonen din kan pakkes i en container, kan du bruke denne repo-strukturen til å bygge og kjøre alt fra mikrotjenester, API-er og bakgrunnsjobber til frontend-applikasjoner på SKIP.
 
+## Mål for workshopen
+
+**Målet er at du oppretter ditt eget repo i GitHub-organisasjonen [`kartverket`](https://github.com/kartverket)**, med en fungerende app som bygges, pakkes i en container og rulles ut på SKIP, på samme måte som dette repoet gjør det. Dette repoet er fasit og mal: bruk det som utgangspunkt, men bygg det opp i ditt eget repo.
+
+Følg [Opprette nytt repo på GitHub](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/github/opprette-nytt-repo-p%C3%A5-github) når du oppretter repoet:
+
+* Sett **Owner** til `kartverket`, ikke din private bruker.
+* Velg visibility, her er det både lov å velge **public** og **private**.
+* **Ikke velg lisens** med mindre det er et reelt open source-prosjekt.
+* Legg inn en [`CODEOWNERS`](./.github/CODEOWNERS)-fil med ditt eget team, og gi teamet tilgang til repoet.
+* Gi repoet et navn som er et gyldig appnavn (små bokstaver og bindestrek). Workflowen publiserer imaget til `ghcr.io/kartverket/<repo-navn>`.
+
+Se [Sjekkliste: dette skal du ha laget](#sjekkliste-dette-skal-du-ha-laget) for å verifisere at du er i mål.
+
 ## Innhold
 
 1. **Applikasjonskode (`app/`):** Mappen der selve kildekoden til applikasjonen ligger. Du står helt fritt til å velge programmeringsspråk og rammeverk. Det eneste som kreves for en typisk web-applikasjon eller tjeneste på SKIP er at den lytter på en nettverksport (her `8080`) og tilbyr endepunkter for helsesjekker (`/healthz` og `/readyz`).
@@ -23,7 +37,7 @@
 * Rettigheter i Kartverkets GitHub-organisasjon.
 * Tilgang til et [apps-repo](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo) satt opp mot Argo CD.
 * Tilkoblet Kartverkets intranett/VPN for tilgang til [Argo CD](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd).
-* En applikasjon som du ønsker å pakke i en container og kjøre på SKIP.
+* En applikasjon som du ønsker å pakke i en container og kjøre på SKIP. Har du ikke noe, så står du fritt til å be en AI om å generere en enkel web-applikasjon i et språk du ønsker (f.eks. Go, Python, Node.js, Java, Rust, C#). Du kan også bruke demo-applikasjonen i dette repoet som utgangspunkt.
 
 ## Kompetansekrav
 
@@ -46,7 +60,8 @@ Fordi applikasjonen bygges og kjøres i en container, trenger du kun noen få fe
 | :--- | :--- | :--- |
 | **Git** | Versjonskontroll og nedlasting av `argokit`-submodulen | Ja |
 | **skipctl** | Rendre, formatere og validere Skiperator/Jsonnet-manifester lokalt | Ja |
-| **Docker** (eller tilsvarende) | Bygge og kjøre container-imaget lokalt | Anbefalt |
+| **Docker** (eller tilsvarende, f.eks. Colima, OrbStack eller Podman) | Bygge og kjøre container-imaget lokalt | Ja (for å teste containeren lokalt) |
+| **GitHub CLI (`gh`)** | Opprette repo fra terminalen. Kan også gjøres i nettleseren | Valgfritt |
 | **Kodeeditor / IDE** | Valgfri editor (f.eks. VS Code, IntelliJ, Cursor e.l., gjerne med Jsonnet-plugin) | Anbefalt |
 
 > **Tips:** `skipctl` har innebygd støtte for å evaluere og formatere Jsonnet-filer, så du trenger ikke å installere `jsonnet` separat for å validere eller rendre manifester.
@@ -56,9 +71,10 @@ Fordi applikasjonen bygges og kjøres i en container, trenger du kun noen få fe
 På macOS anbefales det å bruke [Homebrew](https://brew.sh/):
 
 ```bash
-# 1. Installer Git og Docker (eller OrbStack / Rancher Desktop)
-brew install git
-brew install --cask docker
+# 1. Installer Git og en container-runtime. Colima er gratis og gir docker-kommandoen.
+#    (Docker Desktop krever betalt lisens, se Windows-avsnittet under. OrbStack og Podman Desktop er alternativer.)
+brew install git colima docker
+colima start
 
 # 2. Installer skipctl fra Kartverkets Homebrew-tap
 brew tap kartverket/taps
@@ -82,8 +98,10 @@ På Linux kan du bruke din distribusjons pakkebehandler (f.eks. `apt` på Ubuntu
 # 1. Installer Git og Docker (eksempel for Ubuntu/Debian)
 sudo apt update
 sudo apt install -y git docker.io
+sudo usermod -aG docker "$USER"   # gjør at du kan kjøre docker uten sudo (logg ut og inn igjen etterpå)
 
 # 2. Installer skipctl (via Homebrew på Linux)
+brew tap kartverket/taps
 brew trust kartverket/taps
 brew install skipctl
 ```
@@ -122,7 +140,11 @@ podman machine start
 
 ## Kom i gang lokalt
 
-### 1. Klon repoet og last ned `argokit`-submodulen
+Først utforsker du demoen: klon den, kjør den lokalt og se at manifestet er gyldig. Deretter [oppretter du ditt eget repo](#opprett-ditt-eget-repo-i-kartverket) og bygger det samme der.
+
+> **Før du starter:** Git må være satt opp mot GitHub med Kartverket-kontoen din. Følg [Autentisering til GitHub i terminalen](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/github/autentisering-til-github-i-terminalen) (SSH-nøkkel som er godkjent med *Configure SSO*), sett `user.name` og `user.email`, og sett opp signerte commits (se [`Jukselappen.md`](Jukselappen.md#2-git-versjonskontroll)). Å klone dette demo-repoet fungerer uten innlogging, men du trenger det for å pushe til ditt eget repo.
+
+### 1. Klon demo-repoet og last ned `argokit`-submodulen
 
 Fordi dette repoet inkluderer [ArgoKit](https://github.com/kartverket/argokit) som en Git-submodule, må submodulen initialiseres:
 
@@ -135,26 +157,28 @@ cd skip-demo
 git submodule update --init --recursive
 ```
 
+Sjekk at `argokit/` ikke er tom (`ls argokit`). Hvis den er tom feiler `skipctl` senere med `couldn't open import "argokit/..."`.
+
 ### 2. Bygg og kjør containeren lokalt
 
-Med Docker bygger og kjører du applikasjonen på akkurat samme måte uansett hvilket språk eller rammeverk som ligger i `app/`:
+Med Docker bygger og kjører du applikasjonen på akkurat samme måte uansett hvilket språk eller rammeverk som ligger i `app/`. Kjør den med samme sikkerhetskontekst som Skiperator bruker på SKIP (UID/GID `150`, ingen capabilities, skrivebeskyttet rot-filsystem der kun `/tmp` er skrivbart), slik at du oppdager problemer før du deployer:
 
 ```bash
 docker build -t skip-demo:local .
-docker run --rm -p 8080:8080 skip-demo:local
-```
-For å gjenskape sikkerhetskonteksten Skiperator bruker på SKIP (UID/GID `150`, ingen capabilities, skrivebeskyttet rot-filsystem der kun `/tmp` er skrivbart) kan du i stedet kjøre:
-
-```bash
 docker run --rm --read-only --tmpfs /tmp --user 150:150 --cap-drop ALL \
   --security-opt no-new-privileges -p 8080:8080 skip-demo:local
 ```
 
-Fungerer applikasjonen din her, er den klar for SKIP.
+> **Podman (Windows):** bruk `podman` i stedet for `docker`. I PowerShell erstatter du linjeskiftet `\` med backtick (`` ` ``) eller skriver kommandoen på én linje.
 
-Her lønner det seg å se i dockerfilen for å bekrefte hvilken port applikasjonen lytter på (her `8080`), og at den eksponeres med `-p <host-port>:<container-port>`.
-Åpne deretter [http://localhost:8080](http://localhost:8080) i nettleseren for å teste applikasjonen! Helsesjekkene kan verifiseres på [http://localhost:8080/healthz](http://localhost:8080/healthz) og [http://localhost:8080/readyz](http://localhost:8080/readyz).
-Når du har en applikasjon du er fornøyd med, kan du gå videre til å prøve å pushe den til github og rulle den ut på SKIP.
+`-p 8080:8080` kobler porten din maskin lytter på til porten applikasjonen lytter på i containeren (`<host-port>:<container-port>`, se `EXPOSE` i `Dockerfile`). Åpne [http://localhost:8080](http://localhost:8080) i nettleseren, eller test fra en ny terminal:
+
+```bash
+curl -i http://localhost:8080/healthz
+curl -i http://localhost:8080/readyz
+```
+
+Begge skal svare `200 OK`. Stopp containeren med `Ctrl+C`. Hvis porten er opptatt, se [`Jukselappen.md`](Jukselappen.md#5-vanlige-feilmeldinger-og-løsninger).
 
 ### 3. Rendre og validere manifestet med `skipctl`
 
@@ -164,12 +188,65 @@ Du kan teste at Jsonnet-manifestet i `manifestdemo/app.jsonnet` kompilerer og er
 # Se det ferdig rendrede Kubernetes/Skiperator-manifestet:
 skipctl manifest render --path manifestdemo/app.jsonnet
 
-# Valider manifestet mot Kubernetes- og Skiperator-skjemaer:
+# Valider manifestet mot Kubernetes- og Skiperator-skjemaer (laster ned skjemaene, så du må ha nettilgang):
 skipctl manifest validate --path manifestdemo/app.jsonnet
 
-# Formater Jsonnet-filen:
+# Formater Jsonnet-filen (endrer filen "in place", sjekk med git diff):
 skipctl manifest format --path manifestdemo/app.jsonnet
 ```
+
+Se hvordan resultatet av `render` henger sammen med `manifestdemo/app.jsonnet`: appnavn, image, ingress, replikaer, ressurser og helsesjekker i Jsonnet blir til `spec` i Skiperator-`Application`.
+
+---
+
+## Opprett ditt eget repo i kartverket
+
+Nå som du har sett at demoen virker, lager du ditt eget repo i [`kartverket`](https://github.com/kartverket)-organisasjonen. Bruk reglene fra [Mål for workshopen](#mål-for-workshopen).
+
+**1. Opprett repoet** i nettleseren (*+ → New repository*, Owner `kartverket`, Internal, ingen lisens), eller med GitHub CLI:
+
+```bash
+gh repo create kartverket/<mitt-app-navn> --internal --clone
+cd <mitt-app-navn>
+```
+
+Brukte du nettleseren, klon repoet (se [autentisering](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/github/autentisering-til-github-i-terminalen)) og gå inn i mappen.
+
+**2. Kopier malen inn i repoet.** Fra mappen til ditt nye repo, med demoen klonet ved siden av (`../skip-demo`):
+
+```bash
+cp -r ../skip-demo/app ../skip-demo/Dockerfile ../skip-demo/.dockerignore \
+      ../skip-demo/.github ../skip-demo/manifestdemo .
+```
+
+Kopier *ikke* `.git` eller `argokit/` fra demoen. `argokit` legger du til som submodule i neste steg. På Windows gjør du dette i WSL, eller med `Copy-Item -Recurse` i PowerShell.
+
+**3. Legg til `argokit` som submodule** ([installasjonsguide](https://skip.kartverket.no/docs/applikasjon-utrulling/argokit/installation-guide)):
+
+```bash
+git submodule add https://github.com/kartverket/argokit.git
+```
+
+**4. Tilpass navn.** Bytt ut `skip-demo` med ditt appnavn i `manifestdemo/app.jsonnet` (appnavn, image og hostnavn) og sett ditt eget team i `.github/CODEOWNERS`. Finn alle steder med:
+
+```bash
+grep -rn "skip-demo" . --exclude-dir=.git --exclude-dir=argokit --exclude=README.md
+```
+
+**5. Valider og kjør lokalt** med kommandoene fra [Kom i gang lokalt](#kom-i-gang-lokalt) (`docker build`, `docker run`, `skipctl manifest validate`).
+
+**6. Commit og push via en branch og Pull Request.** Repoer i organisasjonen krever signerte commits (se [`Jukselappen.md`](Jukselappen.md)):
+
+```bash
+git switch -c oppsett
+git add .
+git commit -m "Sett opp app, Dockerfile, CI og manifest"
+git push -u origin oppsett
+```
+
+Åpne en Pull Request og se at workflowene kjører under **Actions**. Merg til `main`, og sjekk at imaget dukker opp under **Packages** på repoet. Pharos-jobben krever at *code scanning* er tilgjengelig for repoet, og `deploy`-jobben hoppes over til du har satt variablene beskrevet under [Apps-repoet](#apps-repoet-slik-deployes-det-til-skip).
+
+**7. Rull ut på SKIP** ved å følge [Apps-repoet](#apps-repoet-slik-deployes-det-til-skip), og gå gjennom [sjekklisten](#sjekkliste-dette-skal-du-ha-laget).
 
 ---
 
@@ -290,6 +367,8 @@ Etter bygg og push endrer `deploy`-jobben i [`workflow.yaml`](./.github/workflow
 ## Sjekkliste: dette skal du ha laget
 
 Workshop-oppgaven er å sette opp det samme for din egen app. Når du er ferdig skal følgende stemme:
+
+- [ ] Du har opprettet et eget repo i GitHub-organisasjonen `kartverket` (Internal, uten lisens), med `CODEOWNERS` og tilgang for teamet ditt.
 
 - [ ] `app/` svarer 200 på `/healthz` og `/readyz`, lytter på `PORT` (standard `8080`) og stopper pent på SIGTERM.
 - [ ] `docker build` fungerer, og containeren kjører med `--read-only --tmpfs /tmp --user 150:150 --cap-drop ALL`.
