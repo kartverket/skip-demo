@@ -18,16 +18,18 @@ Følg [Opprette nytt repo på GitHub](https://skip.kartverket.no/docs/kom-i-gang
 
 Se [Sjekkliste: dette skal du ha laget](#sjekkliste-dette-skal-du-ha-laget) for å verifisere at du er i mål.
 
-## Innhold
+## Workshopløype
 
-1. **Applikasjonskode (`app/`):** Mappen der selve kildekoden til applikasjonen ligger. Du står helt fritt til å velge programmeringsspråk og rammeverk. Det eneste som kreves for en typisk web-applikasjon eller tjeneste på SKIP er at den lytter på en nettverksport (her `8080`) og tilbyr endepunkter for helsesjekker (`/healthz` og `/readyz`).
-2. **Konteinerisering (`Dockerfile`):** En multi-stage `Dockerfile` som bygger applikasjonen fra `app/` og pakker den i et minimalt kjøretids-image som kjører som ikke-root bruker (`150:150`), i tråd med [kravene til Skiperator](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator/requirements) og [retningslinjene for Kubernetes på SKIP](https://skip.kartverket.no/docs/kom-i-gang/praktisk-intro/kubernetes/retningslinjer-for-kubernetes) (Pod Security Standards nivå *restricted*).
-3. **Kontinuerlig Integrasjon (CI):** GitHub Actions-workflows i `.github/workflows/` som kjører Go-tester, bygger `Dockerfile` og publiserer container-imaget til `ghcr.io` (GitHub Container Registry) ved hver push til `main` (på Pull Requests bygges imaget kun for å verifisere at bygget går gjennom, uten å pushe). I tillegg skannes imaget med Pharos, avhengigheter kontrolleres (dependency review og Dependabot), og manifestet valideres med `skipctl`.
-4. **Kontinuerlig Leveranse (CD):**
-   * [**ArgoKit v2**](https://skip.kartverket.no/docs/applikasjon-utrulling/argokit/getting-started) brukes for å definere applikasjonsmanifestet i Jsonnet (`manifestdemo/app.jsonnet`).
-   * [**skipctl**](https://skip.kartverket.no/docs/applikasjon-utrulling/skipctl/get-started) brukes til å rendre, formatere og validere manifestet mot kjente Kubernetes- og Skiperator-skjemaer.
-   * [**Argo CD**](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/komme-i-gang-med-argocd) overvåker endringer i teamets [apps-repo](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hva-er-et-apps-repo) og synkroniserer konfigurasjonen til Kubernetes-clusteret.
-   * [**Skiperator**](https://skip.kartverket.no/docs/applikasjon-utrulling/skiperator) (som kjører i clusteret) leser `Application`-manifestet og oppretter de underliggende Kubernetes-ressursene (Deployment, Service, ruting/ingress, nettverkspolicyer, sertifikater osv.).
+Følg stegene i denne rekkefølgen. Først blir du kjent med demoen, så setter du opp og tilpasser ditt eget repo. Til slutt publiserer du imaget og ruller ut appen via teamets apps-repo.
+
+1. Sjekk [forutsetningene](#forutsetninger-på-skip) og installer [nødvendige verktøy](#nødvendige-verktøy-windows-macos-og-linux).
+2. Kjør demoen lokalt i [Kom i gang lokalt](#kom-i-gang-lokalt) og valider eksempelmanifestet med `skipctl`.
+3. Opprett repoet ditt etter [Klargjør workshop-repoet](#klargjør-workshop-repoet).
+4. Tilpass app, Dockerfile og manifest under [Lag din egen app og pakk den i en container](#lag-din-egen-app-og-pakk-den-i-en-container).
+5. Sett opp utrulling via [apps-repoet](#apps-repoet-slik-deployes-det-til-skip), og følg deretter stegene for [publisering og deploy](#publiser-og-rull-ut).
+6. Bruk [sjekklisten](#sjekkliste-dette-skal-du-ha-laget) for å bekrefte at du er ferdig. Ekstraoppgavene er valgfrie.
+
+Repoet viser en komplett løype: `app/` inneholder kildekoden, `Dockerfile` pakker den som et container-image, GitHub Actions tester og publiserer imaget til GHCR, og et `Application`-manifest i teamets apps-repo beskriver hvordan Skiperator skal kjøre appen. Argo CD synkroniserer manifestet til clusteret.
 
 ---
 
@@ -199,7 +201,7 @@ Se hvordan resultatet av `render` henger sammen med `manifestdemo/app.jsonnet`: 
 
 ---
 
-## Opprett ditt eget repo i kartverket
+## Klargjør workshop-repoet
 
 Nå som du har sett at demoen virker, lager du ditt eget repo i [`kartverket`](https://github.com/kartverket)-organisasjonen. Bruk reglene fra [Mål for workshopen](#mål-for-workshopen).
 
@@ -233,20 +235,7 @@ git submodule add https://github.com/kartverket/argokit.git
 grep -rn "skip-demo" . --exclude-dir=.git --exclude-dir=argokit --exclude=README.md
 ```
 
-**5. Valider og kjør lokalt** med kommandoene fra [Kom i gang lokalt](#kom-i-gang-lokalt) (`docker build`, `docker run`, `skipctl manifest validate`).
-
-**6. Commit og push via en branch og Pull Request.** Repoer i organisasjonen krever signerte commits (se [`Jukselappen.md`](Jukselappen.md)):
-
-```bash
-git switch -c oppsett
-git add .
-git commit -m "Sett opp app, Dockerfile, CI og manifest"
-git push -u origin oppsett
-```
-
-Åpne en Pull Request og se at workflowene kjører under **Actions**. Merg til `main`, og sjekk at imaget dukker opp under **Packages** på repoet. Pharos-jobben krever at *code scanning* er tilgjengelig for repoet, og `deploy`-jobben hoppes over til du har satt variablene beskrevet under [Apps-repoet](#apps-repoet-slik-deployes-det-til-skip).
-
-**7. Rull ut på SKIP** ved å følge [Apps-repoet](#apps-repoet-slik-deployes-det-til-skip), og gå gjennom [sjekklisten](#sjekkliste-dette-skal-du-ha-laget).
+Nå er repoet klargjort, men ikke push endringene ennå. Tilpass først applikasjonen, Dockerfile og manifestet i stegene under. Når de fungerer lokalt, setter du opp apps-repoet og publiserer appen til SKIP.
 
 ---
 
@@ -361,6 +350,28 @@ Etter bygg og push endrer `deploy`-jobben i [`workflow.yaml`](./.github/workflow
 3. Push til `main`. Uten variablene hoppes jobben over.
 
 > **Rollback:** Argo CD har innebygd rollback (*History and rollback*), men imaget må fortsatt finnes i GHCR. Se [Hvordan bruke Argo CD](https://skip.kartverket.no/docs/applikasjon-utrulling/argo-cd/hvordan-bruke-argocd). Feilsøking: [Troubleshooting på SKIP](https://skip.kartverket.no/docs/kom-i-gang/troubleshoot/troubleshooting-on-skip).
+
+---
+
+## Publiser og rull ut
+
+Når appen, containeren og manifestet er tilpasset, test dem lokalt før du åpner en Pull Request:
+
+1. Bygg og kjør containeren etter [Kom i gang lokalt](#kom-i-gang-lokalt), og sjekk at `/healthz` og `/readyz` svarer `200 OK`.
+2. Valider manifestet med `skipctl manifest validate --path manifestdemo/app.jsonnet`.
+3. Opprett en branch, commit endringene og push branchen. Repoer i organisasjonen krever signerte commits (se [`Jukselappen.md`](Jukselappen.md#2-git-versjonskontroll)).
+
+   ```bash
+   git switch -c oppsett
+   git add .
+   git commit -m "Sett opp app, Dockerfile, CI og manifest"
+   git push -u origin oppsett
+   ```
+
+4. Åpne en Pull Request og sjekk workflowene under **Actions**. Når PR-en er godkjent, merge den til `main`.
+5. Sjekk at imaget dukker opp under **Packages** på repoet. Pharos-jobben krever at *code scanning* er tilgjengelig for repoet.
+6. Sjekk Argo CD og appens HTTPS-adresse. `deploy`-jobben oppdaterer apps-repoet automatisk hvis `APPS_REPO`, `APPS_MANIFEST_PATH` og Octo STS-tillit er satt opp. Ellers oppdaterer du image-referansen i apps-repoet manuelt.
+7. Gå gjennom [sjekklisten](#sjekkliste-dette-skal-du-ha-laget).
 
 ---
 
