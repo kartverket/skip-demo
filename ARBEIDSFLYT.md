@@ -8,15 +8,15 @@ flowchart LR
         dev["Utvikler endrer app-kode eller Dockerfile"]
         sourceRepo["GitHub-repo med app/ og Dockerfile"]
         pr["Pull Request"]
-        checks["GitHub Actions<br/>tester og bygg"]
-        main["Push til main"]
-        build["Bygg container-image<br/>tagget med commit-SHA"]
+        prChecks["GitHub Actions<br/>go vet, tester og bygg<br/>(publiserer ikke)"]
+        main["Merge eller push til main"]
+        mainChecks["GitHub Actions<br/>go vet, tester, bygg og publiser"]
+        build["Container-image<br/>tagget med commit-SHA"]
         pharos["Pharos skanner imaget"]
         deploy["deploy-jobb<br/>oppdaterer image-referansen"]
         dev --> sourceRepo
-        sourceRepo --> pr --> checks
-        sourceRepo --> main --> checks
-        checks --> build
+        sourceRepo --> pr --> prChecks
+        sourceRepo --> main --> mainChecks --> build
         build --> pharos
     end
 
@@ -45,7 +45,7 @@ flowchart LR
 
 ## Slik leser du flyten
 
-1. På en Pull Request kjører GitHub Actions tester og bygger imaget som kontroll, men publiserer det ikke.
+1. På en Pull Request kjører GitHub Actions `go vet`, tester og bygger imaget som kontroll, men publiserer det ikke.
 2. Når endringen merges til `main`, kjører workflowen test og bygg på nytt. Bygget image publiseres til GHCR med commit-SHA som tagg; `latest` oppdateres også.
 3. Pharos skanner imaget. Deploy-jobben bruker Octo STS til å oppdatere image-taggen i `app.jsonnet` i teamets apps-repo, og committer endringen der.
 4. Argo CD oppdager endringen i apps-repoet og synkroniserer Jsonnet-manifestet. ArgoKit gjør det om til en Skiperator `Application`.
