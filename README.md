@@ -296,6 +296,8 @@ Oppdater applikasjonsnavn, image-referanse (`ghcr.io/kartverket/<ditt-repo>:...`
 
 ## Fremgangsmåte: Fra kode til kjørende app på SKIP
 
+Se [arbeidsflytdiagrammet](./ARBEIDSFLYT.md) for en oversikt over hvordan kode-repoet, GHCR, apps-repoet og SKIP henger sammen.
+
 1. **Utvikler/Applikasjonsdrifter:** Endrer manifestet eller konfigurasjonen, for eksempel hostnavn, replikaer eller CPU/minne. I denne workshopen beholder du demo-appens kildekode uendret.
 2. **Git Push / Pull Request:** Endringen merges til `main`-branchen.
 3. **GitHub Actions (CI):**
