@@ -18,7 +18,7 @@ Følg [Opprette nytt repo på GitHub](https://skip.kartverket.no/docs/kom-i-gang
 
 ## Workshopløype
 
-Følg stegene i rekkefølge: test demoen lokalt, opprett kildekode-repoet, klargjør apps-repoet, og publiser og verifiser utrullingen. Du bruker demo-appen og Dockerfile som de er; å lage en egen app er en ekstraoppgave. Se [arbeidsflytdiagrammet](./ARBEIDSFLYT.md) for hvordan repoene og SKIP henger sammen.
+Følg stegene i rekkefølge: test demoen lokalt, opprett kildekode-repoet, klargjør apps-repoet, og publiser og verifiser utrullingen. Du bruker demo-appen og Dockerfile som de er; å lage en egen app er en ekstraoppgave. Se [arbeidsflytdiagrammet](./ARBEIDSFLYT.md) for hvordan repoene og SKIP henger sammen, og referer til [Jukselappen.md](./Jukselappen.md) for vanlige kommandoer i terminalen, Git, Docker, Podman og `skipctl`. Denne filen inneholder også en [oversikt](https://github.com/kartverket/skip-demo#referanse-app-container-og-manifest) over hvordan app, container og manifest henger sammen.
 
 1. [Kjør demoen lokalt](#1-kjør-demoen-lokalt)
 2. [Opprett kildekode-repoet](#2-opprett-kildekode-repoet)
