@@ -3,41 +3,40 @@
 Applikasjonskoden og utrullingsbeskrivelsen ligger i hvert sitt repo. Kode-repoet bygger og publiserer container-imaget, mens apps-repoet beskriver hvilken versjon som skal kjøre på SKIP.
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph source["Kode- og image-repo"]
-        dev["Utvikler endrer app-kode eller Dockerfile"]
-        sourceRepo["GitHub-repo med app/ og Dockerfile"]
+        direction TB
+        dev["Utvikler endrer<br/>app-kode eller Dockerfile"]
         pr["Pull Request"]
-        prBuild["GitHub Actions<br/>bygger image<br/>(publiserer ikke)"]
-        main["Merge eller push til main"]
-        mainBuild["GitHub Actions<br/>bygger og publiserer image"]
-        build["Container-image<br/>tagget med commit-SHA"]
+        prBuild["Actions bygger image<br/>(publiserer ikke)"]
+        main["Merge til main"]
+        mainBuild["Actions bygger<br/>og publiserer image"]
         pharos["Pharos skanner imaget"]
-        dev --> sourceRepo
-        sourceRepo --> pr --> prBuild
-        sourceRepo --> main --> mainBuild --> build
-        build --> pharos
+        dev --> pr --> prBuild
+        pr --> main --> mainBuild --> pharos
     end
 
-    registry[("GitHub Container Registry<br/>ghcr.io/kartverket/&lt;repo&gt;")]
+    registry[("GHCR<br/>ghcr.io/kartverket/&lt;repo&gt;")]
 
     subgraph apps["Teamets apps-repo"]
-        manifest["app.jsonnet<br/>ArgoKit Application"]
+        direction TB
+        manifest["app.jsonnet<br/>(ArgoKit)"]
         commit["Commit av ny image-tag"]
-        argocd["Argo CD<br/>overvåker apps-repoet"]
+        argocd["Argo CD<br/>overvåker repoet"]
         manifest --> commit --> argocd
     end
 
     subgraph skip["SKIP-cluster"]
+        direction TB
         skiperator["Skiperator<br/>leser Application"]
-        workload["Deployment og øvrige ressurser"]
+        workload["Deployment og<br/>øvrige ressurser"]
         running["Kjørende applikasjon"]
         skiperator --> workload --> running
     end
 
-    build -->|"publiserer image"| registry
-    registry -->|"manuell oppdatering av image-tag"| commit
-    argocd -->|"synkroniserer manifest"| skiperator
+    mainBuild -->|"publiserer image"| registry
+    registry -->|"manuell oppdatering<br/>av image-tag"| commit
+    argocd -->|"synkroniserer"| skiperator
     workload -->|"henter image"| registry
 ```
 
